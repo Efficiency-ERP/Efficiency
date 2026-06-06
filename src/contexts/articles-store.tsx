@@ -7,6 +7,7 @@ import { getArticles } from "@/lib/supabase/articles"
 interface ArticlesStore {
   articles: Article[]
   loading: boolean
+  error: string | null
   addArticle: (a: Article) => void
   updateArticle: (id: string, patch: Partial<Article>) => void
   toggleActive: (id: string) => void
@@ -17,6 +18,7 @@ const ArticlesContext = createContext<ArticlesStore | undefined>(undefined)
 export function ArticlesProvider({ children }: { children: React.ReactNode }) {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -25,6 +27,7 @@ export function ArticlesProvider({ children }: { children: React.ReactNode }) {
         setArticles(data)
       } catch (err) {
         console.error("Failed to load articles:", err)
+        setError("Failed to load articles")
       } finally {
         setLoading(false)
       }
@@ -35,12 +38,13 @@ export function ArticlesProvider({ children }: { children: React.ReactNode }) {
   const store = useMemo<ArticlesStore>(() => ({
     articles,
     loading,
+    error,
     addArticle: (a: Article) => setArticles((prev) => [a, ...prev]),
     updateArticle: (id: string, patch: Partial<Article>) =>
       setArticles((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x))),
     toggleActive: (id: string) =>
       setArticles((prev) => prev.map((x) => (x.id === id ? { ...x, active: !x.active } : x))),
-  }), [articles, loading])
+  }), [articles, loading, error])
 
   return <ArticlesContext.Provider value={store}>{children}</ArticlesContext.Provider>
 }

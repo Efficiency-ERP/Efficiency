@@ -13,33 +13,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const loadUser = useCallback(async () => {
-    const supabase = createClient()
-    const { data: { user: authUser } } = await supabase.auth.getUser()
+    try {
+      const supabase = createClient()
+      const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!authUser) {
-      setUser(EMPTY_USER)
-      setOrganizations([])
-      setLoading(false)
-      return
-    }
+      if (!authUser) {
+        setUser(EMPTY_USER)
+        setOrganizations([])
+        setLoading(false)
+        return
+      }
 
-    const { data: profile } = await supabase
-      .from("profiles" as never)
-      .select("*" as never)
-      .eq("id", authUser.id)
-      .single()
-
-    const p = profile as Record<string, unknown> | null
-
-    if (p) {
-      setUser({
-        id: p.id as string,
-        name: (p.full_name as string) || authUser.email || "",
-        email: (p.email as string) || authUser.email || "",
-        role: (p.role as string) || "user",
-        avatarUrl: (p.avatar_url as string) || undefined,
-      })
-    } else {
+      // Set user immediately from auth data so UI renders fast
       setUser({
         id: authUser.id,
         name: authUser.email || "",
@@ -47,28 +32,48 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         role: "user",
         avatarUrl: undefined,
       })
+
+      // Fetch profile + org memberships in parallel
+      const [profileResult, orgMembersResult] = await Promise.all([
+        supabase
+          .from("profiles" as never)
+          .select("*" as never)
+          .eq("id", authUser.id)
+          .single(),
+        supabase
+          .from("user_organizations" as never)
+          .select("organization_id" as never)
+          .eq("user_id", authUser.id),
+      ])
+
+      // Refine user with profile data
+      const p = profileResult.data as Record<string, unknown> | null
+      if (p) {
+        setUser({
+          id: p.id as string,
+          name: (p.full_name as string) || authUser.email || "",
+          email: (p.email as string) || authUser.email || "",
+          role: (p.role as string) || "user",
+          avatarUrl: (p.avatar_url as string) || undefined,
+        })
+      }
+
+      // Fetch organizations (depends on org memberships)
+      const orgs = orgMembersResult.data as Array<{ organization_id: string }> | null
+      if (orgs && orgs.length > 0) {
+        const orgIds = orgs.map((uo) => uo.organization_id)
+        const { data: orgData } = await supabase
+          .from("organizations" as never)
+          .select("*" as never)
+          .in("id", orgIds)
+
+        setOrganizations((orgData as unknown as Organization[]) || [])
+      }
+    } catch (err) {
+      console.error("Failed to load user:", err)
+    } finally {
+      setLoading(false)
     }
-
-    const { data: userOrgs } = await supabase
-      .from("user_organizations" as never)
-      .select("organization_id" as never)
-      .eq("user_id", authUser.id)
-
-    const orgs = userOrgs as Array<{ organization_id: string }> | null
-
-    if (orgs && orgs.length > 0) {
-      const orgIds = orgs.map((uo) => uo.organization_id)
-      const { data: orgData } = await supabase
-        .from("organizations" as never)
-        .select("*" as never)
-        .in("id", orgIds)
-
-      setOrganizations((orgData as unknown as Organization[]) || [])
-    } else {
-      setOrganizations([])
-    }
-
-    setLoading(false)
   }, [])
 
   useEffect(() => {
