@@ -1,5 +1,6 @@
 -- Testing Mode: Feedback System
 -- Run this in your Supabase SQL Editor
+-- Safe to re-run (idempotent)
 
 -- ============================================
 -- FEEDBACK TABLE
@@ -43,32 +44,52 @@ create index if not exists idx_feedback_attachments_feedback on feedback_attachm
 -- STORAGE BUCKET
 -- ============================================
 
--- Create the storage bucket for feedback attachments
 insert into storage.buckets (id, name, public)
 values ('feedback-attachments', 'feedback-attachments', true)
 on conflict (id) do nothing;
 
 -- ============================================
--- STORAGE POLICIES
+-- DROP EXISTING POLICIES (safe re-run)
 -- ============================================
 
--- Allow authenticated users to upload files
+-- Storage policies
+drop policy if exists "Authenticated users can upload feedback attachments" on storage.objects;
+drop policy if exists "Public can view feedback attachments" on storage.objects;
+drop policy if exists "Users can delete own feedback attachments" on storage.objects;
+drop policy if exists "Authenticated users can view feedback attachments" on storage.objects;
+
+-- Table policies
+drop policy if exists "Anyone can read feedback" on feedback;
+drop policy if exists "Authenticated users can create feedback" on feedback;
+drop policy if exists "Anyone can update feedback" on feedback;
+drop policy if exists "Users can view all feedback" on feedback;
+drop policy if exists "Users can create own feedback" on feedback;
+
+drop policy if exists "Anyone can read feedback attachments" on feedback_attachments;
+drop policy if exists "Authenticated users can create feedback attachments" on feedback_attachments;
+drop policy if exists "Users can view feedback attachments" on feedback_attachments;
+drop policy if exists "Users can create feedback attachments" on feedback_attachments;
+
+-- ============================================
+-- ROW LEVEL SECURITY
+-- ============================================
+
+alter table feedback enable row level security;
+alter table feedback_attachments enable row level security;
+
+-- ============================================
+-- STORAGE POLICIES (fresh)
+-- ============================================
+
+create policy "Anyone can view feedback attachments"
+  on storage.objects for select
+  using (bucket_id = 'feedback-attachments');
+
 create policy "Authenticated users can upload feedback attachments"
   on storage.objects for insert
   to authenticated
-  with check (
-    bucket_id = 'feedback-attachments'
-  );
+  with check (bucket_id = 'feedback-attachments');
 
--- Allow anyone to view feedback attachments (public bucket)
-create policy "Public can view feedback attachments"
-  on storage.objects for select
-  to public
-  using (
-    bucket_id = 'feedback-attachments'
-  );
-
--- Allow users to delete their own uploads
 create policy "Users can delete own feedback attachments"
   on storage.objects for delete
   to authenticated
@@ -78,32 +99,32 @@ create policy "Users can delete own feedback attachments"
   );
 
 -- ============================================
--- ROW LEVEL SECURITY
+-- TABLE POLICIES (fresh)
 -- ============================================
 
-alter table feedback enable row level security;
-alter table feedback_attachments enable row level security;
-
--- Users can view all feedback (for transparency)
-create policy "Users can view all feedback"
+-- Anyone can read (allows local admin app with anon key)
+create policy "Anyone can read feedback"
   on feedback for select
-  to authenticated
   using (true);
 
--- Users can create their own feedback
-create policy "Users can create own feedback"
+-- Authenticated users create their own
+create policy "Authenticated users can create feedback"
   on feedback for insert
   to authenticated
   with check (user_id = auth.uid());
 
--- Users can view all feedback attachments
-create policy "Users can view feedback attachments"
-  on feedback_attachments for select
-  to authenticated
+-- Anyone can update (for local admin app)
+create policy "Anyone can update feedback"
+  on feedback for update
   using (true);
 
--- Users can create feedback attachments
-create policy "Users can create feedback attachments"
+-- Anyone can read attachments
+create policy "Anyone can read feedback attachments"
+  on feedback_attachments for select
+  using (true);
+
+-- Authenticated users can insert attachments
+create policy "Authenticated users can create feedback attachments"
   on feedback_attachments for insert
   to authenticated
   with check (true);
