@@ -19,7 +19,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const myId = ++loadIdRef.current
     try {
       const supabase = createClient()
-      const { data: { user: authUser }, error } = await supabase.auth.getUser()
+      // getClaims verifies the JWT locally against a cached JWKS (the browser
+      // client is a singleton, so the JWKS is fetched once per session). With
+      // asymmetric JWT keys this avoids an Auth-server round-trip on every load.
+      const { data: claimsData, error } = await supabase.auth.getClaims()
+      const authUser = claimsData?.claims
 
       if (myId !== loadIdRef.current) return
 
@@ -30,10 +34,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      const authUserId = authUser.sub as string
+      const authUserEmail = (authUser.email as string) || ""
+
       setUser({
-        id: authUser.id,
-        name: authUser.email || "",
-        email: authUser.email || "",
+        id: authUserId,
+        name: authUserEmail,
+        email: authUserEmail,
         role: "user",
         avatarUrl: undefined,
       })
@@ -42,12 +49,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         supabase
           .from("profiles" as never)
           .select("*" as never)
-          .eq("id", authUser.id)
+          .eq("id", authUserId)
           .single(),
         supabase
           .from("user_organizations" as never)
           .select("organization_id" as never)
-          .eq("user_id", authUser.id),
+          .eq("user_id", authUserId),
       ])
 
       if (myId !== loadIdRef.current) return
@@ -56,8 +63,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (p) {
         setUser({
           id: p.id as string,
-          name: (p.full_name as string) || authUser.email || "",
-          email: (p.email as string) || authUser.email || "",
+          name: (p.full_name as string) || authUserEmail,
+          email: (p.email as string) || authUserEmail,
           role: (p.role as string) || "user",
           avatarUrl: (p.avatar_url as string) || undefined,
         })

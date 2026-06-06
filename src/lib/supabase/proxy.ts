@@ -23,9 +23,14 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Verify the JWT locally instead of calling the Supabase Auth server on every
+  // request. getClaims() reads the session from cookies (refreshing it on demand
+  // when expired, just like getUser did) and validates the token against a cached
+  // JWKS — no network round-trip per request, provided asymmetric JWT signing keys
+  // are enabled for the project (Dashboard → Authentication → JWT Keys). On a
+  // legacy HS256 secret it transparently falls back to getUser().
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims
 
   if (
     !user &&

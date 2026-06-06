@@ -9,10 +9,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  // The proxy already revalidates/refreshes the session for every dashboard
+  // request, so this is a cheap, local defense-in-depth check (getClaims verifies
+  // the JWT against a cached JWKS) rather than a second Auth-server round-trip.
   const supabase = await createServerClientInstance()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data } = await supabase.auth.getClaims()
 
-  if (!user) {
+  if (!data?.claims) {
     redirect("/login")
   }
 

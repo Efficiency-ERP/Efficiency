@@ -3,7 +3,8 @@ import { createServerClientInstance } from "@/lib/supabase/server"
 
 export default async function Home() {
   const supabase = await createServerClientInstance()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims
 
   if (user) {
     redirect("/dashboard")

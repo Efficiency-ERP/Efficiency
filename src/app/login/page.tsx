@@ -14,8 +14,8 @@ export default function LoginPage() {
 	useEffect(() => {
 		setMounted(true);
 		const supabase = createClient();
-		supabase.auth.getUser().then(({ data }) => {
-			if (data.user) window.location.href = '/dashboard';
+		supabase.auth.getClaims().then(({ data }) => {
+			if (data?.claims) window.location.href = '/dashboard';
 		});
 	}, []);
 
