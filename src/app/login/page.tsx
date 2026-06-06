@@ -2,19 +2,22 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase/client"
-import type { Session } from "@supabase/supabase-js"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
-      if (data.session) router.replace("/dashboard")
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) router.replace("/dashboard")
     })
   }, [router])
 
@@ -22,9 +25,17 @@ export default function LoginPage() {
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
-          <span className="flex items-center gap-2 font-medium text-lg">
-            PME Manager
-          </span>
+          <a href="/dashboard" className="flex items-center gap-2 font-medium">
+            {mounted ? (
+              <img
+                src={resolvedTheme === "dark" ? "/logo_dark.svg" : "/logo.svg"}
+                alt="Efficiency"
+                className="h-6 w-32"
+              />
+            ) : (
+              <span className="text-lg font-bold">Efficiency</span>
+            )}
+          </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs">
@@ -33,12 +44,11 @@ export default function LoginPage() {
         </div>
       </div>
       <div className="bg-muted relative hidden lg:block">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-muted-foreground">
-            <div className="text-6xl font-bold mb-4">PME</div>
-            <div className="text-lg">Gestion Intelligente</div>
-          </div>
-        </div>
+        <img
+          src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=1200&h=800&fit=crop&q=80"
+          alt="Abstract 3D gradient"
+          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+        />
       </div>
     </div>
   )
@@ -61,7 +71,8 @@ function LoginForm() {
     if (authError) {
       setError(authError.message)
     } else {
-      router.push("/dashboard")
+      router.replace("/dashboard")
+      router.refresh()
     }
   }
 

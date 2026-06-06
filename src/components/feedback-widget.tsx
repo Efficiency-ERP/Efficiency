@@ -65,25 +65,23 @@ export function FeedbackWidget() {
       alert("Please describe your feedback.")
       return
     }
-    if (!user) {
-      alert("You must be logged in to submit feedback.")
-      return
-    }
 
     setLoading(true)
     try {
       const uploaded: { file_name: string; file_url: string; file_type: string; file_size: number }[] = []
 
-      for (const file of files) {
-        const result = await uploadFeedbackAttachment(file, user.id)
-        uploaded.push(result)
+      if (user?.id) {
+        for (const file of files) {
+          const result = await uploadFeedbackAttachment(file, user.id)
+          uploaded.push(result)
+        }
       }
 
       await createFeedback(
         {
-          user_id: user.id,
-          user_name: user.name || null,
-          user_email: user.email || null,
+          user_id: user?.id || null,
+          user_name: user?.name || null,
+          user_email: user?.email || null,
           type,
           description: description.trim(),
         },
@@ -228,6 +226,12 @@ export function FeedbackWidget() {
               </div>
 
               {/* Submit */}
+              {!user?.id && (
+                <div className="rounded-md bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  You are not logged in. Your feedback will be submitted anonymously.
+                  {files.length > 0 && " File attachments require login."}
+                </div>
+              )}
               <Button
                 type="submit"
                 className="w-full"

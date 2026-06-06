@@ -108,6 +108,11 @@ create policy "Authenticated users can create feedback"
   to authenticated
   with check (user_id = auth.uid());
 
+create policy "Anonymous users can create feedback"
+  on feedback for insert
+  to anon
+  with check (user_id is null);
+
 create policy "Anyone can update feedback"
   on feedback for update
   using (true);

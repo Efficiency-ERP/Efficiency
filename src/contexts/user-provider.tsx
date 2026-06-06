@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useEffect, useMemo, useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { createClient, resetClient } from "@/lib/supabase/client"
 import { UserContext, type AppUser, type UserContextType } from "./user-context"
 import type { Organization } from "@/types/database"
 
@@ -11,20 +12,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser>(EMPTY_USER)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const loadIdRef = useRef(0)
 
   const loadUser = useCallback(async () => {
+    const myId = ++loadIdRef.current
     try {
       const supabase = createClient()
-      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const { data: { user: authUser }, error } = await supabase.auth.getUser()
 
-      if (!authUser) {
+      if (myId !== loadIdRef.current) return
+
+      if (error || !authUser) {
+        await supabase.auth.signOut({ scope: "global" })
+        resetClient()
         setUser(EMPTY_USER)
         setOrganizations([])
         setLoading(false)
         return
       }
 
-      // Set user immediately from auth data so UI renders fast
       setUser({
         id: authUser.id,
         name: authUser.email || "",
@@ -33,7 +40,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         avatarUrl: undefined,
       })
 
-      // Fetch profile + org memberships in parallel
       const [profileResult, orgMembersResult] = await Promise.all([
         supabase
           .from("profiles" as never)
@@ -46,7 +52,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           .eq("user_id", authUser.id),
       ])
 
-      // Refine user with profile data
+      if (myId !== loadIdRef.current) return
+
       const p = profileResult.data as Record<string, unknown> | null
       if (p) {
         setUser({
@@ -58,7 +65,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         })
       }
 
-      // Fetch organizations (depends on org memberships)
       const orgs = orgMembersResult.data as Array<{ organization_id: string }> | null
       if (orgs && orgs.length > 0) {
         const orgIds = orgs.map((uo) => uo.organization_id)
@@ -71,8 +77,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error("Failed to load user:", err)
+      if (myId !== loadIdRef.current) return
+      const supabase = createClient()
+      await supabase.auth.signOut({ scope: "global" })
+      resetClient()
+      setUser(EMPTY_USER)
+      setOrganizations([])
     } finally {
-      setLoading(false)
+      if (myId === loadIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [])
 
@@ -86,6 +100,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           await loadUser()
         } else if (event === "SIGNED_OUT") {
+          loadIdRef.current++
+          resetClient()
           setUser(EMPTY_USER)
           setOrganizations([])
           setLoading(false)
@@ -95,6 +111,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe()
   }, [loadUser])
+
+  useEffect(() => {
+    if (loading) return
+    if (!user.id && typeof window !== "undefined" && window.location.pathname !== "/login") {
+      router.replace("/login")
+    }
+  }, [loading, user, router])
 
   const value = useMemo<UserContextType>(() => ({
     user,

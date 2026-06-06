@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { usePMESelection } from "@/contexts/pme-context"
-import { formatTND, castJson } from "@/lib/utils"
+import { formatTND, castJson, withTimeout } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import SalesBarChart from "@/components/SalesBarChart"
 import { getInvoices } from "@/lib/supabase/invoices"
@@ -42,19 +42,21 @@ export default function DashboardHome() {
   const todayStr = useMemo(() => now.toISOString().slice(0, 10), [now])
 
   useEffect(() => {
+    const orgId = selectedOrgId !== "all" ? selectedOrgId : undefined
+    const TIMEOUT = 12000
+
     async function load() {
       try {
-        const orgId = selectedOrgId !== "all" ? selectedOrgId : undefined
-        const [inv, ord, del, iss] = await Promise.all([
-          getInvoices(orgId),
-          getOrders(orgId),
-          getDeliveries(orgId),
-          getIssues(orgId),
+        const results = await Promise.allSettled([
+          withTimeout(getInvoices(orgId), TIMEOUT, "Invoices"),
+          withTimeout(getOrders(orgId), TIMEOUT, "Orders"),
+          withTimeout(getDeliveries(orgId), TIMEOUT, "Deliveries"),
+          withTimeout(getIssues(orgId), TIMEOUT, "Issues"),
         ])
-        setAllInvoices(inv)
-        setAllOrders(ord)
-        setAllDeliveries(del)
-        setAllIssues(iss)
+        if (results[0].status === "fulfilled") setAllInvoices(results[0].value)
+        if (results[1].status === "fulfilled") setAllOrders(results[1].value)
+        if (results[2].status === "fulfilled") setAllDeliveries(results[2].value)
+        if (results[3].status === "fulfilled") setAllIssues(results[3].value)
       } catch (err) {
         console.error("Failed to load dashboard data:", err)
       } finally {

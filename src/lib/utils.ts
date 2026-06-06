@@ -5,6 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function withTimeout<T>(promise: Promise<T>, ms: number, label = "Operation"): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ])
+}
+
 export function formatTND(value: number): string {
   try {
     return new Intl.NumberFormat('fr-TN', { style: 'currency', currency: 'TND' }).format(Number(value || 0))

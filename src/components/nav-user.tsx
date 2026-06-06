@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/use-sidebar"
 import { useUser } from "@/contexts/user-context"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, resetClient } from "@/lib/supabase/client"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -44,7 +44,8 @@ export function NavUser() {
 
   const handleLogout = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "global" })
+    resetClient()
     router.push("/login")
     router.refresh()
   }

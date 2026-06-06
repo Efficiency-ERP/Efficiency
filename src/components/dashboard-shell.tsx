@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
@@ -35,6 +37,26 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { getBreadcrumbsForPath } = useNavigation()
   const breadcrumbs = getBreadcrumbsForPath(pathname)
+  const { user, loading } = useUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && !user.id) {
+      router.replace("/login")
+    }
+  }, [loading, user, router])
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <span className="text-muted-foreground text-sm">Loading...</span>
+      </div>
+    )
+  }
+
+  if (!user.id) {
+    return null
+  }
 
   return (
     <ContactsProvider>
