@@ -1,59 +1,56 @@
--- Efficiency Database Schema
--- Run this in your Supabase SQL Editor
+-- ============================================
+-- 1/5 SCHEMA — Run first
+-- Creates all tables, enums, indexes, functions
+-- Safe to re-run (never drops data)
+-- ============================================
 
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
 -- ============================================
--- DROP EXISTING (if re-running)
--- ============================================
-
-drop trigger if exists on_auth_user_created on auth.users;
-drop function if exists public.handle_new_user() cascade;
-drop function if exists compute_invoice_totals(uuid) cascade;
-
-drop table if exists issue_lines cascade;
-drop table if exists issues cascade;
-drop table if exists order_lines cascade;
-drop table if exists orders cascade;
-drop table if exists delivery_lines cascade;
-drop table if exists deliveries cascade;
-drop table if exists consignment_lines cascade;
-drop table if exists invoice_lines cascade;
-drop table if exists invoices cascade;
-drop table if exists articles cascade;
-drop table if exists contacts cascade;
-drop table if exists logs cascade;
-drop table if exists user_organizations cascade;
-drop table if exists profiles cascade;
-drop table if exists organizations cascade;
-
--- ============================================
 -- ENUMS
 -- ============================================
 
-drop type if exists party_type cascade;
-drop type if exists article_type cascade;
-drop type if exists invoice_type cascade;
-drop type if exists invoice_status cascade;
-drop type if exists counterparty_kind cascade;
-drop type if exists order_type cascade;
-drop type if exists document_status cascade;
+do $$ begin
+  create type party_type as enum ('customer', 'supplier', 'both');
+exception when duplicate_object then null;
+end $$;
 
-create type party_type as enum ('customer', 'supplier', 'both');
-create type article_type as enum ('product', 'service');
-create type invoice_type as enum ('standard', 'credit', 'debit');
-create type invoice_status as enum ('draft', 'sent', 'paid', 'cancelled');
-create type counterparty_kind as enum ('contact', 'organization');
-create type order_type as enum ('supplier', 'interco', 'customer');
-create type document_status as enum ('draft', 'final');
+do $$ begin
+  create type article_type as enum ('product', 'service');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type invoice_type as enum ('standard', 'credit', 'debit');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type invoice_status as enum ('draft', 'sent', 'paid', 'cancelled');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type counterparty_kind as enum ('contact', 'organization');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type order_type as enum ('supplier', 'interco', 'customer');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type document_status as enum ('draft', 'final');
+exception when duplicate_object then null;
+end $$;
 
 -- ============================================
 -- TABLES
 -- ============================================
 
--- Organizations (PME)
-create table organizations (
+create table if not exists organizations (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
   mf text,
@@ -64,8 +61,7 @@ create table organizations (
   created_at timestamptz default now()
 );
 
--- Contacts
-create table contacts (
+create table if not exists contacts (
   id uuid primary key default uuid_generate_v4(),
   party_type party_type not null default 'customer',
   is_internal_org boolean default false,
@@ -80,8 +76,7 @@ create table contacts (
   created_at timestamptz default now()
 );
 
--- Articles
-create table articles (
+create table if not exists articles (
   id uuid primary key default uuid_generate_v4(),
   type article_type not null default 'product',
   code text not null,
@@ -98,8 +93,7 @@ create table articles (
   created_at timestamptz default now()
 );
 
--- Invoices
-create table invoices (
+create table if not exists invoices (
   id uuid primary key default uuid_generate_v4(),
   number text not null,
   date date not null default current_date,
@@ -115,8 +109,7 @@ create table invoices (
   created_at timestamptz default now()
 );
 
--- Invoice Lines
-create table invoice_lines (
+create table if not exists invoice_lines (
   id uuid primary key default uuid_generate_v4(),
   invoice_id uuid not null references invoices(id) on delete cascade,
   article_id uuid references articles(id) on delete set null,
@@ -130,8 +123,7 @@ create table invoice_lines (
   dc_rate numeric(5,2) not null default 1
 );
 
--- Consignment Lines
-create table consignment_lines (
+create table if not exists consignment_lines (
   id uuid primary key default uuid_generate_v4(),
   invoice_id uuid not null references invoices(id) on delete cascade,
   source_line_id uuid not null references invoice_lines(id) on delete cascade,
@@ -142,8 +134,7 @@ create table consignment_lines (
   total numeric(12,2) not null default 0
 );
 
--- Deliveries
-create table deliveries (
+create table if not exists deliveries (
   id uuid primary key default uuid_generate_v4(),
   number text not null,
   date date not null default current_date,
@@ -156,8 +147,7 @@ create table deliveries (
   created_at timestamptz default now()
 );
 
--- Delivery Lines
-create table delivery_lines (
+create table if not exists delivery_lines (
   id uuid primary key default uuid_generate_v4(),
   delivery_id uuid not null references deliveries(id) on delete cascade,
   code text not null,
@@ -166,8 +156,7 @@ create table delivery_lines (
   quantity numeric(12,2) not null default 1
 );
 
--- Orders
-create table orders (
+create table if not exists orders (
   id uuid primary key default uuid_generate_v4(),
   number text not null,
   date date not null default current_date,
@@ -178,8 +167,7 @@ create table orders (
   created_at timestamptz default now()
 );
 
--- Order Lines
-create table order_lines (
+create table if not exists order_lines (
   id uuid primary key default uuid_generate_v4(),
   order_id uuid not null references orders(id) on delete cascade,
   code text not null,
@@ -189,8 +177,7 @@ create table order_lines (
   unit_price numeric(12,2)
 );
 
--- Issues
-create table issues (
+create table if not exists issues (
   id uuid primary key default uuid_generate_v4(),
   number text not null,
   date date not null default current_date,
@@ -201,8 +188,7 @@ create table issues (
   created_at timestamptz default now()
 );
 
--- Issue Lines
-create table issue_lines (
+create table if not exists issue_lines (
   id uuid primary key default uuid_generate_v4(),
   issue_id uuid not null references issues(id) on delete cascade,
   code text not null,
@@ -211,8 +197,7 @@ create table issue_lines (
   quantity numeric(12,2) not null default 1
 );
 
--- Profiles (extends auth.users)
-create table profiles (
+create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   email text,
@@ -221,15 +206,13 @@ create table profiles (
   created_at timestamptz default now()
 );
 
--- User-Organization junction (many-to-many)
-create table user_organizations (
+create table if not exists user_organizations (
   user_id uuid not null references auth.users(id) on delete cascade,
   organization_id uuid not null references organizations(id) on delete cascade,
   primary key (user_id, organization_id)
 );
 
--- Audit Logs
-create table logs (
+create table if not exists logs (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid references auth.users(id) on delete set null,
   user_name text,
@@ -244,26 +227,26 @@ create table logs (
 -- INDEXES
 -- ============================================
 
-create index idx_contacts_company_name on contacts(company_name);
-create index idx_contacts_internal_org on contacts(internal_organization_id);
-create index idx_articles_code on articles(code);
-create index idx_articles_organization on articles(organization_id);
-create index idx_invoices_number on invoices(number);
-create index idx_invoices_organization on invoices(organization_id);
-create index idx_invoices_counterparty on invoices(counterparty_id);
-create index idx_invoices_status on invoices(status);
-create index idx_invoices_date on invoices(date);
-create index idx_invoice_lines_invoice on invoice_lines(invoice_id);
-create index idx_deliveries_number on deliveries(number);
-create index idx_deliveries_organization on deliveries(organization_id);
-create index idx_orders_number on orders(number);
-create index idx_orders_organization on orders(organization_id);
-create index idx_issues_number on issues(number);
-create index idx_issues_organization on issues(organization_id);
-create index idx_logs_organization on logs(organization_id);
-create index idx_logs_created_at on logs(created_at desc);
-create index idx_user_organizations_user on user_organizations(user_id);
-create index idx_user_organizations_org on user_organizations(organization_id);
+create index if not exists idx_contacts_company_name on contacts(company_name);
+create index if not exists idx_contacts_internal_org on contacts(internal_organization_id);
+create index if not exists idx_articles_code on articles(code);
+create index if not exists idx_articles_organization on articles(organization_id);
+create index if not exists idx_invoices_number on invoices(number);
+create index if not exists idx_invoices_organization on invoices(organization_id);
+create index if not exists idx_invoices_counterparty on invoices(counterparty_id);
+create index if not exists idx_invoices_status on invoices(status);
+create index if not exists idx_invoices_date on invoices(date);
+create index if not exists idx_invoice_lines_invoice on invoice_lines(invoice_id);
+create index if not exists idx_deliveries_number on deliveries(number);
+create index if not exists idx_deliveries_organization on deliveries(organization_id);
+create index if not exists idx_orders_number on orders(number);
+create index if not exists idx_orders_organization on orders(organization_id);
+create index if not exists idx_issues_number on issues(number);
+create index if not exists idx_issues_organization on issues(organization_id);
+create index if not exists idx_logs_organization on logs(organization_id);
+create index if not exists idx_logs_created_at on logs(created_at desc);
+create index if not exists idx_user_organizations_user on user_organizations(user_id);
+create index if not exists idx_user_organizations_org on user_organizations(organization_id);
 
 -- ============================================
 -- FUNCTIONS
@@ -274,13 +257,15 @@ create or replace function public.handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (id, email, full_name)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name');
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name')
+  on conflict (id) do nothing;
   return new;
 end;
 $$ language plpgsql security definer;
 
--- Trigger for new user
-create or replace trigger on_auth_user_created
+-- Drop old trigger if exists, then recreate
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
@@ -315,7 +300,6 @@ begin
 
     ht_subtotal := ht_subtotal + ht;
 
-    -- Accumulate VAT by rate
     if vat_by_rate ? line.vat_rate::text then
       vat_by_rate := vat_by_rate || jsonb_build_object(
         line.vat_rate::text,
@@ -325,7 +309,6 @@ begin
       vat_by_rate := vat_by_rate || jsonb_build_object(line.vat_rate::text, vat_amount);
     end if;
 
-    -- Accumulate DC by rate
     if dc_by_rate ? line.dc_rate::text then
       dc_by_rate := dc_by_rate || jsonb_build_object(
         line.dc_rate::text,
@@ -336,7 +319,6 @@ begin
     end if;
   end loop;
 
-  -- Calculate totals
   select into total_vat coalesce(sum(value::numeric), 0) from jsonb_each_text(vat_by_rate);
   select into total_dc coalesce(sum(value::numeric), 0) from jsonb_each_text(dc_by_rate);
   ttc := ht_subtotal + total_vat + total_dc;

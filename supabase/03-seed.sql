@@ -1,6 +1,8 @@
--- Seed Data
--- Run this AFTER schema.sql and rls.sql
--- Idempotent: safe to run multiple times
+-- ============================================
+-- 3/5 SEED DATA — Run after RLS
+-- Inserts demo organizations, contacts, articles
+-- Safe to re-run (deletes old seed data first)
+-- ============================================
 
 -- ============================================
 -- DELETE EXISTING SEED DATA
