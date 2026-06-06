@@ -43,9 +43,9 @@ export default function LoginPage() {
       </div>
       <div className="bg-muted relative hidden lg:block">
         <img
-          src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=1200&h=800&fit=crop&q=80"
-          alt="Abstract 3D gradient"
-          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+          src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1200&h=1600&fit=crop&q=80"
+          alt="Financial management workspace"
+          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
         />
       </div>
     </div>

@@ -91,9 +91,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     loadUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: string) => {
+      (event: string) => {
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          await loadUser()
+          // Defer the Supabase calls out of this callback. Calling auth/db
+          // methods synchronously here deadlocks the supabase-js auth lock,
+          // which leaves `loading` stuck on `true` forever after login.
+          setTimeout(() => { loadUser() }, 0)
         } else if (event === "SIGNED_OUT") {
           loadIdRef.current++
           resetClient()
