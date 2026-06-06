@@ -23,11 +23,8 @@ import { ArticlesProvider } from "@/contexts/articles-store"
 import { LogsProvider } from "@/contexts/logs-provider"
 import { PMEProvider } from "@/contexts/pme-provider"
 import { useUser } from "@/contexts/user-context"
-import { FeedbackWidget } from "@/components/feedback-widget"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-
-const isTestingMode = process.env.NEXT_PUBLIC_TESTING_MODE === "true"
 
 function PMEWrapper({ children }: { children: React.ReactNode }) {
   const { organizations } = useUser()
@@ -84,7 +81,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 </header>
                 <main className="p-6">{children}</main>
               </SidebarInset>
-              {isTestingMode && <FeedbackWidget />}
             </SidebarProvider>
           </LogsProvider>
         </ArticlesProvider>
