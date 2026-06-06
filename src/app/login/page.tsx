@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
@@ -9,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 
 export default function LoginPage() {
-  const router = useRouter()
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -17,9 +15,9 @@ export default function LoginPage() {
     setMounted(true)
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) router.replace("/dashboard")
+      if (data.user) window.location.href = "/dashboard"
     })
-  }, [router])
+  }, [])
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
@@ -55,7 +53,6 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -65,14 +62,18 @@ function LoginForm() {
     e.preventDefault()
     setError("")
     setLoading(true)
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (authError) {
-      setError(authError.message)
-    } else {
-      router.replace("/dashboard")
-      router.refresh()
+    try {
+      const supabase = createClient()
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) {
+        setError(authError.message)
+      } else {
+        window.location.href = "/dashboard"
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.")
+    } finally {
+      setLoading(false)
     }
   }
 
