@@ -24,8 +24,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (myId !== loadIdRef.current) return
 
       if (error || !authUser) {
-        await supabase.auth.signOut({ scope: "global" })
-        resetClient()
         setUser(EMPTY_USER)
         setOrganizations([])
         setLoading(false)
@@ -78,9 +76,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("Failed to load user:", err)
       if (myId !== loadIdRef.current) return
-      const supabase = createClient()
-      await supabase.auth.signOut({ scope: "global" })
-      resetClient()
       setUser(EMPTY_USER)
       setOrganizations([])
     } finally {
