@@ -14,7 +14,7 @@ import type { Stock, Consignment, Json } from "@/types/database"
 export default function EditArticlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { articles, loading } = useArticlesStore()
+  const { articles, loading, updateArticle: updateArticleInStore } = useArticlesStore()
   const article = articles.find((a) => a.id === id)
 
   const [saving, setSaving] = useState(false)
@@ -67,7 +67,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
     setSaving(true)
     try {
       const validPackaging = packaging.filter((p) => ["BOUTEILLE", "PALETTE", "CASIER"].includes(p.type.toUpperCase()))
-      await updateArticle(id, {
+      const updated = await updateArticle(id, {
         code: form.code,
         designation: form.designation,
         unit: form.unit || null,
@@ -78,6 +78,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
         stock: { onHand: form.stock_onHand, minStock: form.stock_minStock },
         consignment: { enabled: form.consignment_enabled, packaging: validPackaging } as unknown as Json,
       })
+      updateArticleInStore(id, updated)
       router.push(`/dashboard/articles/${id}`)
     } catch (err) {
       console.error(err)

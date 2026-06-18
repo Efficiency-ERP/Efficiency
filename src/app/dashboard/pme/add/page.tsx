@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createOrganization, createContact } from "@/lib/supabase/contacts"
+import { useContactsStore } from "@/contexts/contacts-store"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AddPMEPage() {
   const router = useRouter()
+  const { addOrganization, addContact } = useContactsStore()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     name: "",
@@ -37,7 +39,7 @@ export default function AddPMEPage() {
         contact: { phone: form.phone, fax: form.fax || null },
         conditions_de_vente: form.conditions_de_vente || null,
       })
-      await createContact({
+      const createdContact = await createContact({
         party_type: "both",
         is_internal_org: true,
         internal_organization_id: org.id,
@@ -49,6 +51,8 @@ export default function AddPMEPage() {
         conditions_de_vente: null,
         archived: false,
       })
+      addOrganization(org)
+      addContact(createdContact)
       router.push("/dashboard/contacts")
     } catch { alert("Failed to create PME") } finally { setLoading(false) }
   }

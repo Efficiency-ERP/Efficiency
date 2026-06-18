@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createArticle } from "@/lib/supabase/articles"
+import { useArticlesStore } from "@/contexts/articles-store"
 import { usePMESelection } from "@/contexts/pme-context"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +15,7 @@ import type { Json } from "@/types/database"
 export default function AddArticlePage() {
   const router = useRouter()
   const { selectedOrgId, selectedOrgName } = usePMESelection()
+  const { addArticle } = useArticlesStore()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     type: "product" as "product" | "service",
@@ -43,7 +45,7 @@ export default function AddArticlePage() {
     setLoading(true)
     try {
       const validPackaging = packaging.filter((p) => ["BOUTEILLE", "PALETTE", "CASIER"].includes(p.type.toUpperCase()))
-      await createArticle({
+      const created = await createArticle({
         type: form.type,
         code: form.code,
         designation: form.designation,
@@ -57,6 +59,7 @@ export default function AddArticlePage() {
         consignment: { enabled: form.consignment_enabled, packaging: validPackaging } as unknown as Json,
         active: true,
       })
+      addArticle(created)
       router.push("/dashboard/articles")
     } catch (err) {
       console.error(err)
