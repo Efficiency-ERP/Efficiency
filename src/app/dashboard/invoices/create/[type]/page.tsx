@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Json } from "@/types/database"
+import { PAYMENT_METHODS } from "@/lib/utils"
+import type { Json, PaymentMethod } from "@/types/database"
 
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
@@ -24,6 +25,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [invoiceNumber] = useState(generateInvoiceNumber())
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("")
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; vat_rate: number; dc_rate: number; article_id: string | null }>>([])
   const [loading, setLoading] = useState(false)
@@ -87,6 +89,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           counterparty_id: counterpartyId,
           type: invoiceType,
           status: "draft",
+          payment_method: paymentMethod || null,
           references: {} as Json,
           notes: notes || null,
         },
@@ -138,6 +141,19 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               <div className="grid gap-2"><Label>Number</Label><Input value={invoiceNumber} readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
               <div className="grid gap-2"><Label>Due Date</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label>Mode de paiement</Label>
+                <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+                  <SelectTrigger><SelectValue placeholder="Select mode de paiement" /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { formatTND, castJson } from "@/lib/utils"
+import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { getInvoice, getInvoiceLines, getConsignments } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals } from "@/types/database"
 
@@ -74,6 +74,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{invoice.type}</Badge></div>
           <div><span className="text-muted-foreground">Status:</span> <Badge>{invoice.status}</Badge></div>
           <div><span className="text-muted-foreground">Due Date:</span> {invoice.due_date || "N/A"}</div>
+          <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(invoice.payment_method)}</div>
         </CardContent>
       </Card>
 
