@@ -105,7 +105,7 @@ export default function AddArticlePage() {
               <div className="grid gap-2"><Label>Transfer Price</Label><Input type="number" step="0.01" value={form.transfer_price} onChange={(e) => setForm({ ...form, transfer_price: Number(e.target.value) })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>VAT %</Label><Input type="number" step="0.01" value={form.vat_rate} onChange={(e) => setForm({ ...form, vat_rate: Number(e.target.value) })} /></div>
+              <div className="grid gap-2"><Label>TVA %</Label><Input type="number" step="0.01" value={form.vat_rate} onChange={(e) => setForm({ ...form, vat_rate: Number(e.target.value) })} /></div>
               <div className="grid gap-2"><Label>DC %</Label><Input type="number" step="0.01" value={form.dc_rate} onChange={(e) => setForm({ ...form, dc_rate: Number(e.target.value) })} /></div>
             </div>
           </CardContent>

@@ -169,7 +169,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                     <th className="text-right p-2">Qty</th>
                     <th className="text-left p-2">Unit</th>
                     <th className="text-right p-2">PUHT</th>
-                    <th className="text-right p-2">VAT %</th>
+                    <th className="text-right p-2">TVA %</th>
                     <th className="text-right p-2">DC %</th>
                     <th></th>
                   </tr>
@@ -197,7 +197,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.htSubtotal.toFixed(2)} TND</span></div>
-            <div className="flex justify-between"><span>VAT:</span><span>{Object.values(totals.vatByRate).reduce((a, b) => a + b, 0).toFixed(2)} TND</span></div>
+            <div className="flex justify-between"><span>TVA:</span><span>{Object.values(totals.vatByRate).reduce((a, b) => a + b, 0).toFixed(2)} TND</span></div>
             <div className="flex justify-between"><span>DC:</span><span>{Object.values(totals.dcByRate).reduce((a, b) => a + b, 0).toFixed(2)} TND</span></div>
             <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.ttc.toFixed(2)} TND</span></div>
           </CardContent>

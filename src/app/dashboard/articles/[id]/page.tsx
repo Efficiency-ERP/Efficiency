@@ -48,7 +48,7 @@ export default function ArticleSummaryPage({ params }: { params: Promise<{ id: s
             <div><span className="text-muted-foreground">Unit:</span> {article.unit || "N/A"}</div>
             <div><span className="text-muted-foreground">PUHT:</span> {formatTND(article.unit_price_puht)}</div>
             <div><span className="text-muted-foreground">Transfer Price:</span> {formatTND(article.transfer_price)}</div>
-            <div><span className="text-muted-foreground">VAT:</span> {article.vat_rate}%</div>
+            <div><span className="text-muted-foreground">TVA:</span> {article.vat_rate}%</div>
             <div><span className="text-muted-foreground">DC:</span> {article.dc_rate}%</div>
           </CardContent>
         </Card>

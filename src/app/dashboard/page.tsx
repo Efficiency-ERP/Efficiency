@@ -275,7 +275,7 @@ export default function DashboardHome() {
             <CardTitle className="text-sm">Tax Collected (MTD)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm">VAT: {formatTND(vatMTD)}</div>
+            <div className="text-sm">TVA: {formatTND(vatMTD)}</div>
             <div className="text-sm">DC: {formatTND(dcMTD)}</div>
           </CardContent>
         </Card>
