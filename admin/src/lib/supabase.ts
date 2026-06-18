@@ -33,6 +33,14 @@ export interface FeedbackAttachment {
   created_at: string
 }
 
+export interface FeedbackNote {
+  id: string
+  feedback_id: string
+  author: string | null
+  body: string
+  created_at: string
+}
+
 export async function fetchAllFeedback(): Promise<Feedback[]> {
   const { data, error } = await supabase
     .from("feedback")
@@ -66,4 +74,48 @@ export async function updateFeedbackStatus(
 
   if (error) throw error
   return data
+}
+
+export async function fetchNotes(feedbackId: string): Promise<FeedbackNote[]> {
+  const { data, error } = await supabase
+    .from("feedback_notes")
+    .select("*")
+    .eq("feedback_id", feedbackId)
+    .order("created_at", { ascending: true })
+
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchNoteCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("feedback_notes")
+    .select("feedback_id")
+
+  if (error) throw error
+  const counts: Record<string, number> = {}
+  for (const row of data || []) {
+    counts[row.feedback_id] = (counts[row.feedback_id] || 0) + 1
+  }
+  return counts
+}
+
+export async function addNote(
+  feedbackId: string,
+  body: string,
+  author?: string | null
+): Promise<FeedbackNote> {
+  const { data, error } = await supabase
+    .from("feedback_notes")
+    .insert({ feedback_id: feedbackId, body, author: author || null })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteNote(id: string): Promise<void> {
+  const { error } = await supabase.from("feedback_notes").delete().eq("id", id)
+  if (error) throw error
 }
