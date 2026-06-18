@@ -11,6 +11,7 @@ export type ArticleType = "product" | "service"
 export type PackagingType = "BOUTEILLE" | "PALETTE" | "CASIER"
 export type InvoiceType = "standard" | "credit" | "debit"
 export type InvoiceStatus = "draft" | "sent" | "paid" | "cancelled"
+export type PaymentMethod = "especes" | "cheque" | "virement" | "traite" | "carte"
 export type CounterpartyKind = "contact" | "organization"
 export type OrderType = "supplier" | "interco" | "customer"
 export type DocumentStatus = "draft" | "final"
@@ -152,6 +153,7 @@ export interface Database {
           counterparty_id: string
           type: InvoiceType
           status: InvoiceStatus
+          payment_method: PaymentMethod | null
           totals: Json
           references: Json
           notes: string | null
@@ -167,6 +169,7 @@ export interface Database {
           counterparty_id: string
           type: InvoiceType
           status?: InvoiceStatus
+          payment_method?: PaymentMethod | null
           totals?: Json
           references?: Json
           notes?: string | null
@@ -182,6 +185,7 @@ export interface Database {
           counterparty_id?: string
           type?: InvoiceType
           status?: InvoiceStatus
+          payment_method?: PaymentMethod | null
           totals?: Json
           references?: Json
           notes?: string | null

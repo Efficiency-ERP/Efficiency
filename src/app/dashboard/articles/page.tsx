@@ -75,7 +75,7 @@ export default function ListArticlesPage() {
     },
     {
       accessorKey: "vat_rate",
-      header: "VAT %",
+      header: "TVA %",
     },
     {
       accessorKey: "dc_rate",

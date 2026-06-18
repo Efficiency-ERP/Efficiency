@@ -103,6 +103,7 @@ create table if not exists invoices (
   counterparty_id uuid not null references contacts(id) on delete restrict,
   type invoice_type not null default 'standard',
   status invoice_status not null default 'draft',
+  payment_method text,
   totals jsonb default '{"htSubtotal": 0, "vatByRate": {}, "dcByRate": {}, "ttc": 0}'::jsonb,
   "references" jsonb default '{}'::jsonb,
   notes text,

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createContact } from "@/lib/supabase/contacts"
+import { useContactsStore } from "@/contexts/contacts-store"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AddContactPage() {
   const router = useRouter()
+  const { addContact } = useContactsStore()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     company_name: "",
@@ -34,7 +36,7 @@ export default function AddContactPage() {
     }
     setLoading(true)
     try {
-      await createContact({
+      const created = await createContact({
         party_type: form.party_type,
         is_internal_org: false,
         internal_organization_id: null,
@@ -54,6 +56,7 @@ export default function AddContactPage() {
         conditions_de_vente: form.conditions_de_vente || null,
         archived: false,
       })
+      addContact(created)
       router.push("/dashboard/contacts")
     } catch (err) {
       console.error(err)

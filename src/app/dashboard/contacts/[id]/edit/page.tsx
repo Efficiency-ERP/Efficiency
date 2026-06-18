@@ -15,7 +15,7 @@ import type { Address, ContactInfo } from "@/types/database"
 export default function EditContactPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { contacts, loading } = useContactsStore()
+  const { contacts, loading, updateContact: updateContactInStore } = useContactsStore()
   const contact = contacts.find((c) => c.id === id)
 
   const [saving, setSaving] = useState(false)
@@ -65,7 +65,7 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
     e.preventDefault()
     setSaving(true)
     try {
-      await updateContact(id, {
+      const updated = await updateContact(id, {
         company_name: form.company_name,
         party_type: form.party_type,
         mf: form.mf || null,
@@ -82,6 +82,7 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
         },
         conditions_de_vente: form.conditions_de_vente || null,
       })
+      updateContactInStore(id, updated)
       router.push("/dashboard/contacts")
     } catch (err) {
       console.error(err)

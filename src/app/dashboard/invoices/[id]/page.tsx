@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { formatTND, castJson } from "@/lib/utils"
+import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { getInvoice, getInvoiceLines, getConsignments } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals } from "@/types/database"
 
@@ -74,6 +74,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{invoice.type}</Badge></div>
           <div><span className="text-muted-foreground">Status:</span> <Badge>{invoice.status}</Badge></div>
           <div><span className="text-muted-foreground">Due Date:</span> {invoice.due_date || "N/A"}</div>
+          <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(invoice.payment_method)}</div>
         </CardContent>
       </Card>
 
@@ -82,7 +83,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <CardContent>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Designation</th><th className="text-right p-2">Qty</th><th className="text-left p-2">Unit</th><th className="text-right p-2">PUHT</th><th className="text-right p-2">VAT %</th><th className="text-right p-2">DC %</th></tr>
+              <tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Designation</th><th className="text-right p-2">Qty</th><th className="text-left p-2">Unit</th><th className="text-right p-2">PUHT</th><th className="text-right p-2">TVA %</th><th className="text-right p-2">DC %</th></tr>
             </thead>
             <tbody>
               {lines.map((line) => (
@@ -127,7 +128,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between"><span>HT Subtotal:</span><span>{formatTND(totals.htSubtotal || 0)}</span></div>
-          <div className="flex justify-between"><span>VAT:</span><span>{formatTND(Object.values(totals.vatByRate || {}).reduce((a, b) => a + b, 0))}</span></div>
+          <div className="flex justify-between"><span>TVA:</span><span>{formatTND(Object.values(totals.vatByRate || {}).reduce((a, b) => a + b, 0))}</span></div>
           <div className="flex justify-between"><span>DC:</span><span>{formatTND(Object.values(totals.dcByRate || {}).reduce((a, b) => a + b, 0))}</span></div>
           <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
         </CardContent>

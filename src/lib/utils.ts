@@ -1,5 +1,18 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { PaymentMethod } from "@/types/database"
+
+export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: "especes", label: "Espèces" },
+  { value: "cheque", label: "Chèque" },
+  { value: "virement", label: "Virement" },
+  { value: "traite", label: "Traite" },
+  { value: "carte", label: "Carte bancaire" },
+]
+
+export function paymentMethodLabel(method: PaymentMethod | null | undefined): string {
+  return PAYMENT_METHODS.find((m) => m.value === method)?.label ?? "—"
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
