@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useUser } from "@/contexts/user-context"
+import { useMyPme } from "@/hooks/use-my-pme"
 import { createInvoice, generateInvoiceNumber, computeInvoiceTotals } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
 import type { Json, PaymentMethod, TaxCharge } from "@/types/database"
@@ -23,7 +23,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const { selectedOrgId } = usePMESelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
-  const { organizations: myOrganizations } = useUser()
+  const { isContactMyPme, isArticleMyPme } = useMyPme()
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
@@ -111,16 +111,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
     }
   }
 
-  const myOrgIds = new Set(myOrganizations.map((o) => o.id))
-  const isMyPme = (c: (typeof contacts)[number]) =>
-    c.is_internal_org && !!c.internal_organization_id && myOrgIds.has(c.internal_organization_id)
-
-  const filteredContacts = contacts
-    .filter((c) => {
-      if (invoiceType !== "standard" || true) return c.party_type !== "supplier"
-      return true
-    })
-    .sort((a, b) => Number(isMyPme(b)) - Number(isMyPme(a)))
+  const filteredContacts = sortMyPmeFirst(
+    contacts.filter((c) => (invoiceType === "standard" ? c.party_type !== "supplier" : true)),
+    isContactMyPme
+  )
+  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
 
   const totals = computeInvoiceTotals(lines)
 
@@ -150,15 +145,9 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                   <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
                   <SelectContent>
                     {filteredContacts.map((c) => (
-                      <SelectItem
-                        key={c.id}
-                        value={c.id}
-                        className={isMyPme(c) ? "bg-primary/10 font-medium" : undefined}
-                      >
+                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
                         {c.company_name}
-                        {isMyPme(c) && (
-                          <Badge variant="secondary" className="ml-1">My PME</Badge>
-                        )}
+                        {isContactMyPme(c) && <PmeBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -196,8 +185,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               <Select onValueChange={addFromArticle}>
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
                 <SelectContent>
-                  {articles.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.code} — {a.designation}</SelectItem>
+                  {sortedArticles.map((a) => (
+                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                      {a.code} — {a.designation}
+                      {isArticleMyPme(a) && <PmeBadge />}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
