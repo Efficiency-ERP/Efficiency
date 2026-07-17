@@ -6,6 +6,7 @@ import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
+import { useActionLog } from "@/hooks/use-action-log"
 import { createInvoice, generateInvoiceNumber, computeInvoiceTotals } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,6 +25,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
   const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const logAction = useActionLog("invoices")
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
@@ -85,7 +87,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         transfer_price: l.transfer_price,
       }))
 
-      await createInvoice(
+      const invoice = await createInvoice(
         {
           number: invoiceNumber,
           date,
@@ -102,6 +104,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         invoiceLines,
         [] // TODO: auto-generate consignments
       )
+      await logAction(`Created ${invoiceType} invoice ${invoice.number}`, invoice.id, organizationId)
       router.push("/dashboard/invoices")
     } catch (err) {
       console.error(err)

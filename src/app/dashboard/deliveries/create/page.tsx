@@ -6,6 +6,7 @@ import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
+import { useActionLog } from "@/hooks/use-action-log"
 import { createDelivery, generateDeliveryNumber } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,6 +22,7 @@ export default function CreateDeliveryPage() {
   const { contacts, organizations } = useContactsStore()
   const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
   const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const logAction = useActionLog("deliveries")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
   const [deliveryNumber] = useState(generateDeliveryNumber())
@@ -45,8 +47,9 @@ export default function CreateDeliveryPage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      const { updatedArticles } = await createDelivery({ number: deliveryNumber, date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", references: {} as Json }, lines)
+      const { delivery, updatedArticles } = await createDelivery({ number: deliveryNumber, date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", references: {} as Json }, lines)
       for (const article of updatedArticles) updateArticleInStore(article.id, article)
+      await logAction(`Created delivery ${delivery.number}`, delivery.id, organizationId)
       router.push("/dashboard/deliveries")
     } catch { alert("Failed to create delivery") } finally { setLoading(false) }
   }

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createOrganization, createContact } from "@/lib/supabase/contacts"
 import { useContactsStore } from "@/contexts/contacts-store"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 export default function AddPMEPage() {
   const router = useRouter()
   const { addOrganization, addContact } = useContactsStore()
+  const logAction = useActionLog("pme")
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     name: "",
@@ -53,6 +55,7 @@ export default function AddPMEPage() {
       })
       addOrganization(org)
       addContact(createdContact)
+      await logAction(`Created PME ${org.name}`, org.id)
       router.push("/dashboard/contacts")
     } catch { alert("Failed to create PME") } finally { setLoading(false) }
   }

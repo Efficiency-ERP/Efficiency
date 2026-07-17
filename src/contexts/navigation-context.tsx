@@ -113,6 +113,8 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
     }
   } else if (pathSegments.includes("settings")) {
     breadcrumbs.push({ label: "Settings", href: "/dashboard/settings", isLast: true })
+  } else if (pathSegments.includes("logs")) {
+    breadcrumbs.push({ label: "Logs", href: "/dashboard/logs", isLast: true })
   }
 
   return breadcrumbs

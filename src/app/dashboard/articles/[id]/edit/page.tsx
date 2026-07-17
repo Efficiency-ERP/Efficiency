@@ -4,6 +4,7 @@ import { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { updateArticle } from "@/lib/supabase/articles"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const { articles, loading, updateArticle: updateArticleInStore } = useArticlesStore()
   const article = articles.find((a) => a.id === id)
+  const logAction = useActionLog("articles")
 
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -79,6 +81,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
         consignment: { enabled: form.consignment_enabled, packaging: validPackaging } as unknown as Json,
       })
       updateArticleInStore(id, updated)
+      await logAction(`Updated article ${updated.code} — ${updated.designation}`, updated.id, updated.organization_id)
       router.push(`/dashboard/articles/${id}`)
     } catch (err) {
       console.error(err)

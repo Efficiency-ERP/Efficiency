@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createContact } from "@/lib/supabase/contacts"
 import { useContactsStore } from "@/contexts/contacts-store"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ import { PartyTypeField } from "@/components/party-type-field"
 export default function AddContactPage() {
   const router = useRouter()
   const { addContact, contacts } = useContactsStore()
+  const logAction = useActionLog("contacts")
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     company_name: "",
@@ -61,6 +63,7 @@ export default function AddContactPage() {
         archived: false,
       })
       addContact(created)
+      await logAction(`Created contact ${created.company_name}`, created.id)
       router.push("/dashboard/contacts")
     } catch (err) {
       console.error(err)

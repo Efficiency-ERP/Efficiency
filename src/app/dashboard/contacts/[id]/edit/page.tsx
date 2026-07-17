@@ -4,6 +4,7 @@ import { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { updateContact } from "@/lib/supabase/contacts"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const { contacts, loading, updateContact: updateContactInStore } = useContactsStore()
   const contact = contacts.find((c) => c.id === id)
+  const logAction = useActionLog("contacts")
 
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -87,6 +89,7 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
         conditions_de_vente: form.conditions_de_vente || null,
       })
       updateContactInStore(id, updated)
+      await logAction(`Updated contact ${updated.company_name}`, updated.id)
       router.push("/dashboard/contacts")
     } catch (err) {
       console.error(err)

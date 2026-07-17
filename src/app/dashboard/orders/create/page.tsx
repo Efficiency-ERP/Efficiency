@@ -6,6 +6,7 @@ import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
+import { useActionLog } from "@/hooks/use-action-log"
 import { createOrder, generateOrderNumber } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +23,7 @@ export default function CreateOrderPage() {
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
   const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const logAction = useActionLog("orders")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
   const [orderNumber] = useState(generateOrderNumber())
@@ -45,7 +47,8 @@ export default function CreateOrderPage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      await createOrder({ number: orderNumber, date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft" }, lines)
+      const order = await createOrder({ number: orderNumber, date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft" }, lines)
+      await logAction(`Created ${orderType} order ${order.number}`, order.id, organizationId)
       router.push("/dashboard/orders")
     } catch { alert("Failed to create order") } finally { setLoading(false) }
   }

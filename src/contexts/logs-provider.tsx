@@ -39,7 +39,7 @@ export function LogsProvider({ children }: { children: React.ReactNode }) {
         module: entry.module,
         message: entry.message,
         target_id: entry.targetId || null,
-        organization_id: selectedOrgId !== "all" ? selectedOrgId : null,
+        organization_id: entry.organizationId !== undefined ? entry.organizationId : (selectedOrgId !== "all" ? selectedOrgId : null),
       })
     } catch {
       // Silent fail for logs

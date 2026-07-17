@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useUser } from "@/contexts/user-context"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 
 export default function SettingsPage() {
   const { user, organizations, updateUser, loading } = useUser()
+  const logAction = useActionLog("settings")
   const [userName, setUserName] = useState(user.name)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -19,6 +21,7 @@ export default function SettingsPage() {
   const handleSaveProfile = async () => {
     setSaving(true)
     await updateUser({ name: userName })
+    await logAction(`Updated profile name to "${userName}"`, user.id)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)

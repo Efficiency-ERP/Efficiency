@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { createArticle } from "@/lib/supabase/articles"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { usePMESelection } from "@/contexts/pme-context"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ export default function AddArticlePage() {
   const router = useRouter()
   const { selectedOrgId, selectedOrgName } = usePMESelection()
   const { addArticle } = useArticlesStore()
+  const logAction = useActionLog("articles")
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     type: "product" as "product" | "service",
@@ -59,6 +61,7 @@ export default function AddArticlePage() {
         active: true,
       })
       addArticle(created)
+      await logAction(`Created article ${created.code} — ${created.designation}`, created.id, created.organization_id)
       router.push("/dashboard/articles")
     } catch (err) {
       console.error(err)
