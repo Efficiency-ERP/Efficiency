@@ -17,10 +17,11 @@ import type { Json, PaymentMethod } from "@/types/database"
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
   const router = useRouter()
-  const { selectedOrgId, selectedOrgName } = usePMESelection()
-  const { contacts } = useContactsStore()
+  const { selectedOrgId } = usePMESelection()
+  const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
 
+  const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
   const [invoiceNumber] = useState(generateInvoiceNumber())
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
@@ -61,7 +62,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedOrgId || selectedOrgId === "all") { alert("Select a PME"); return }
+    if (!organizationId) { alert("Select a PME"); return }
     if (!counterpartyId) { alert("Select a counterparty"); return }
     if (lines.length === 0) { alert("Add at least one line"); return }
 
@@ -84,7 +85,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           number: invoiceNumber,
           date,
           due_date: dueDate || null,
-          organization_id: selectedOrgId,
+          organization_id: organizationId,
           counterparty_kind: "contact",
           counterparty_id: counterpartyId,
           type: invoiceType,
@@ -115,13 +116,23 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   return (
     <div className="max-w-4xl space-y-6">
       <h1 className="text-2xl font-bold">Create {type} Invoice</h1>
-      <div className="text-sm text-muted-foreground">PME: {selectedOrgName || "Select a PME first"}</div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader><CardTitle>Header</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>PME *</Label>
+                <Select value={organizationId} onValueChange={setOrganizationId}>
+                  <SelectTrigger><SelectValue placeholder="Select PME" /></SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2">
                 <Label>Counterparty *</Label>
                 <Select value={counterpartyId} onValueChange={setCounterpartyId}>
