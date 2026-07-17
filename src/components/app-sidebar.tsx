@@ -2,6 +2,8 @@
 
 import * as React from "react"
 import { useNavigation } from "@/contexts/navigation-context"
+import { useSidebarPrefs } from "@/contexts/sidebar-prefs-context"
+import { applySidebarOrder } from "@/hooks/use-sidebar-prefs"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 
@@ -16,10 +18,15 @@ import {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { navigationItems } = useNavigation()
+  const { prefs } = useSidebarPrefs()
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => setMounted(true), [])
+
+  const [dashboardItem, ...restItems] = navigationItems
+  const visibleItems = applySidebarOrder(restItems, prefs.order).filter((i) => !prefs.hidden.includes(i.url))
+  const orderedNavigationItems = dashboardItem ? [dashboardItem, ...visibleItems] : visibleItems
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -40,7 +47,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navigationItems} />
+        <NavMain items={orderedNavigationItems} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
