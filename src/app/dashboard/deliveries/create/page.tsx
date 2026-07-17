@@ -17,20 +17,20 @@ export default function CreateDeliveryPage() {
   const router = useRouter()
   const { selectedOrgId } = usePMESelection()
   const { contacts } = useContactsStore()
-  const { articles } = useArticlesStore()
+  const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
   const [counterpartyId, setCounterpartyId] = useState("")
   const [deliveryNumber] = useState(generateDeliveryNumber())
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number }>>([])
+  const [lines, setLines] = useState<Array<{ article_id: string | null; code: string; designation: string; unit: string | null; quantity: number }>>([])
   const [loading, setLoading] = useState(false)
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
     if (!article) return
-    setLines([...lines, { code: article.code, designation: article.designation, unit: article.unit, quantity: 1 }])
+    setLines([...lines, { article_id: article.id, code: article.code, designation: article.designation, unit: article.unit, quantity: 1 }])
   }
 
-  const addFreeformLine = () => setLines([...lines, { code: "", designation: "", unit: null, quantity: 1 }])
+  const addFreeformLine = () => setLines([...lines, { article_id: null, code: "", designation: "", unit: null, quantity: 1 }])
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => { const u = [...lines]; u[i] = { ...u[i], ...patch }; setLines(u) }
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i))
 
@@ -41,7 +41,8 @@ export default function CreateDeliveryPage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      await createDelivery({ number: deliveryNumber, date, organization_id: selectedOrgId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", references: {} as Json }, lines)
+      const { updatedArticles } = await createDelivery({ number: deliveryNumber, date, organization_id: selectedOrgId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", references: {} as Json }, lines)
+      for (const article of updatedArticles) updateArticleInStore(article.id, article)
       router.push("/dashboard/deliveries")
     } catch { alert("Failed to create delivery") } finally { setLoading(false) }
   }

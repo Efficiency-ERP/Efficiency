@@ -42,7 +42,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   if (!issue) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
       <h2 className="text-xl font-bold">Issue not found</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/issues/create")}>Back to issues</Button>
+      <Button variant="outline" onClick={() => router.push("/dashboard/issues")}>Back to issues</Button>
     </div>
   )
 

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client"
-import type { Invoice, InvoiceLine, ConsignmentLine, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, TaxCharge } from "@/types/database"
+import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
+import type { Article, Invoice, InvoiceLine, ConsignmentLine, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, TaxCharge } from "@/types/database"
 
 // ============================================
 // INVOICES
@@ -165,7 +166,7 @@ export async function getDeliveryLines(deliveryId: string): Promise<DeliveryLine
 export async function createDelivery(
   delivery: Omit<Delivery, "id" | "created_at">,
   lines: Omit<DeliveryLine, "id" | "delivery_id">[]
-): Promise<Delivery> {
+): Promise<{ delivery: Delivery; updatedArticles: Article[] }> {
   const supabase = createClient()
 
   const { data: del, error: delError } = await supabase
@@ -184,7 +185,9 @@ export async function createDelivery(
     if (linesError) throw linesError
   }
 
-  return del
+  const updatedArticles = await recordDeliveryStockMovements(del.organization_id, del.id, del.date, lines)
+
+  return { delivery: del, updatedArticles }
 }
 
 // ============================================

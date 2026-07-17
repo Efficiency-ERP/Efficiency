@@ -42,7 +42,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   if (!order) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
       <h2 className="text-xl font-bold">Order not found</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/orders/create")}>Back to orders</Button>
+      <Button variant="outline" onClick={() => router.push("/dashboard/orders")}>Back to orders</Button>
     </div>
   )
 

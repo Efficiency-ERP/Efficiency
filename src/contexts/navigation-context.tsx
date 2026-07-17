@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext } from "react"
-import { Home, FileText, Users, Newspaper } from "lucide-react"
+import { Home, FileText, Users, Newspaper, Boxes, Truck, ShoppingCart, ClipboardList } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface NavigationItem {
@@ -40,6 +40,26 @@ const navigationItems: NavigationItem[] = [
     url: "/dashboard/articles",
     icon: Newspaper,
   },
+  {
+    title: "Stock",
+    url: "/dashboard/stock",
+    icon: Boxes,
+  },
+  {
+    title: "Deliveries",
+    url: "/dashboard/deliveries",
+    icon: Truck,
+  },
+  {
+    title: "Orders",
+    url: "/dashboard/orders",
+    icon: ShoppingCart,
+  },
+  {
+    title: "Issues",
+    url: "/dashboard/issues",
+    icon: ClipboardList,
+  },
 ]
 
 function findNavigationItem(items: NavigationItem[], path: string): NavigationItem | null {
@@ -75,6 +95,14 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
     breadcrumbs.push({ label: "Contacts", href: "/dashboard/contacts", isLast: true })
   } else if (pathSegments.includes("articles")) {
     breadcrumbs.push({ label: "Articles", href: "/dashboard/articles", isLast: true })
+  } else if (pathSegments.includes("stock")) {
+    breadcrumbs.push({ label: "Stock", href: "/dashboard/stock", isLast: true })
+  } else if (pathSegments.includes("deliveries")) {
+    breadcrumbs.push({ label: "Deliveries", href: "/dashboard/deliveries", isLast: true })
+  } else if (pathSegments.includes("orders")) {
+    breadcrumbs.push({ label: "Orders", href: "/dashboard/orders", isLast: true })
+  } else if (pathSegments.includes("issues")) {
+    breadcrumbs.push({ label: "Issues", href: "/dashboard/issues", isLast: true })
   } else if (pathSegments.includes("profile")) {
     breadcrumbs.push({ label: "Profile", href: "/dashboard/profile", isLast: true })
   } else if (pathSegments.includes("pme")) {
