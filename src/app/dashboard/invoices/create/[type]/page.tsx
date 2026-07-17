@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
+import { useUser } from "@/contexts/user-context"
 import { createInvoice, generateInvoiceNumber, computeInvoiceTotals } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
@@ -21,6 +23,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const { selectedOrgId } = usePMESelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
+  const { organizations: myOrganizations } = useUser()
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
@@ -108,10 +111,16 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
     }
   }
 
-  const filteredContacts = contacts.filter((c) => {
-    if (invoiceType !== "standard" || true) return c.party_type !== "supplier"
-    return true
-  })
+  const myOrgIds = new Set(myOrganizations.map((o) => o.id))
+  const isMyPme = (c: (typeof contacts)[number]) =>
+    c.is_internal_org && !!c.internal_organization_id && myOrgIds.has(c.internal_organization_id)
+
+  const filteredContacts = contacts
+    .filter((c) => {
+      if (invoiceType !== "standard" || true) return c.party_type !== "supplier"
+      return true
+    })
+    .sort((a, b) => Number(isMyPme(b)) - Number(isMyPme(a)))
 
   const totals = computeInvoiceTotals(lines)
 
@@ -141,7 +150,16 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                   <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
                   <SelectContent>
                     {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.company_name}</SelectItem>
+                      <SelectItem
+                        key={c.id}
+                        value={c.id}
+                        className={isMyPme(c) ? "bg-primary/10 font-medium" : undefined}
+                      >
+                        {c.company_name}
+                        {isMyPme(c) && (
+                          <Badge variant="secondary" className="ml-1">My PME</Badge>
+                        )}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
