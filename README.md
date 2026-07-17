@@ -33,8 +33,8 @@ Open **Supabase SQL Editor** and run the scripts in order:
 | 1 | `01-schema.sql` | Creates all tables, enums, indexes, functions |
 | 2 | `02-rls.sql` | Row Level Security policies |
 | 3 | `03-seed.sql` | Demo data (orgs, contacts, articles) |
-| 4 | `04-assign-users.sql` | Links auth users to organizations |
-| 5 | `05-testing-mode.sql` | Feedback system (optional) |
+| 4 | `04-feedback-system.sql` | Feedback + attachments + notes, storage bucket (optional) |
+| 5 | `05-assign-users.sql` | Manual: links real auth users to organizations, run whenever needed |
 
 All scripts are **idempotent** — safe to re-run without breaking anything.
 
@@ -112,8 +112,8 @@ efficiency/
     ├── 01-schema.sql
     ├── 02-rls.sql
     ├── 03-seed.sql
-    ├── 04-assign-users.sql
-    └── 05-testing-mode.sql
+    ├── 04-feedback-system.sql
+    └── 05-assign-users.sql
 ```
 
 ## Features
