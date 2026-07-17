@@ -42,7 +42,7 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
   if (!delivery) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
       <h2 className="text-xl font-bold">Delivery not found</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/deliveries/create")}>Back to deliveries</Button>
+      <Button variant="outline" onClick={() => router.push("/dashboard/deliveries")}>Back to deliveries</Button>
     </div>
   )
 

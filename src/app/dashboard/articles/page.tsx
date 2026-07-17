@@ -3,20 +3,24 @@
 import { useState, useMemo } from "react"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { usePMESelection } from "@/contexts/pme-context"
+import { useMyPme } from "@/hooks/use-my-pme"
 import { DataTable } from "@/components/data-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { PmeBadge } from "@/components/pme-option"
 import { useRouter } from "next/navigation"
-import type { Article, Stock, Consignment } from "@/types/database"
+import type { Article, Stock, Consignment, TaxCharge } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
 import { castJson } from "@/lib/utils"
+import { formatTaxCharges } from "@/components/tax-charges-editor"
 
 export default function ListArticlesPage() {
   const router = useRouter()
   const { articles, loading } = useArticlesStore()
   const { selectedOrgId } = usePMESelection()
+  const { isArticleMyPme } = useMyPme()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [consignmentFilter, setConsignmentFilter] = useState<string>("all")
@@ -55,6 +59,7 @@ export default function ListArticlesPage() {
         <div className="flex items-center gap-2">
           {row.original.designation}
           <Badge variant="outline">{row.original.type}</Badge>
+          {isArticleMyPme(row.original) && <PmeBadge />}
         </div>
       ),
     },
@@ -74,12 +79,9 @@ export default function ListArticlesPage() {
       cell: ({ row }) => `${row.original.transfer_price} TND`,
     },
     {
-      accessorKey: "vat_rate",
-      header: "TVA %",
-    },
-    {
-      accessorKey: "dc_rate",
-      header: "DC %",
+      accessorKey: "tax_charges",
+      header: "Taxes",
+      cell: ({ row }) => formatTaxCharges(castJson<TaxCharge[]>(row.original.tax_charges)),
     },
     {
       accessorKey: "stock",

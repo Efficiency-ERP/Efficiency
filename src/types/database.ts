@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type PartyType = "customer" | "supplier" | "both"
+export type PartyType = string
 export type ArticleType = "product" | "service"
 export type PackagingType = "BOUTEILLE" | "PALETTE" | "CASIER"
 export type InvoiceType = "standard" | "credit" | "debit"
@@ -15,6 +15,15 @@ export type PaymentMethod = "especes" | "cheque" | "virement" | "traite" | "cart
 export type CounterpartyKind = "contact" | "organization"
 export type OrderType = "supplier" | "interco" | "customer"
 export type DocumentStatus = "draft" | "final"
+
+export type TaxBase = "ht" | "transfer" | "cumulative"
+
+export interface TaxCharge {
+  id: string
+  label: string
+  rate: number
+  base: TaxBase
+}
 
 export interface Database {
   public: {
@@ -103,8 +112,7 @@ export interface Database {
           unit: string | null
           unit_price_puht: number
           transfer_price: number
-          vat_rate: number
-          dc_rate: number
+          tax_charges: Json
           stock: Json
           consignment: Json
           active: boolean
@@ -119,8 +127,7 @@ export interface Database {
           unit?: string | null
           unit_price_puht?: number
           transfer_price?: number
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
           stock?: Json
           consignment?: Json
           active?: boolean
@@ -135,8 +142,7 @@ export interface Database {
           unit?: string | null
           unit_price_puht?: number
           transfer_price?: number
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
           stock?: Json
           consignment?: Json
           active?: boolean
@@ -202,8 +208,7 @@ export interface Database {
           quantity: number
           unit_price_puht: number
           remise_percent: number | null
-          vat_rate: number
-          dc_rate: number
+          tax_charges: Json
         }
         Insert: {
           id?: string
@@ -215,8 +220,7 @@ export interface Database {
           quantity?: number
           unit_price_puht?: number
           remise_percent?: number | null
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
         }
         Update: {
           id?: string
@@ -228,8 +232,7 @@ export interface Database {
           quantity?: number
           unit_price_puht?: number
           remise_percent?: number | null
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
         }
       }
       consignment_lines: {
@@ -305,6 +308,7 @@ export interface Database {
         Row: {
           id: string
           delivery_id: string
+          article_id: string | null
           code: string
           designation: string
           unit: string | null
@@ -313,6 +317,7 @@ export interface Database {
         Insert: {
           id?: string
           delivery_id: string
+          article_id?: string | null
           code: string
           designation: string
           unit?: string | null
@@ -321,6 +326,7 @@ export interface Database {
         Update: {
           id?: string
           delivery_id?: string
+          article_id?: string | null
           code?: string
           designation?: string
           unit?: string | null
@@ -514,9 +520,46 @@ export interface Database {
           organization_id?: string | null
         }
       }
+      stock_movements: {
+        Row: {
+          id: string
+          article_id: string
+          organization_id: string
+          quantity_delta: number
+          direction: StockMovementDirection
+          source_type: StockMovementSourceType
+          source_id: string | null
+          date: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          article_id: string
+          organization_id: string
+          quantity_delta: number
+          direction: StockMovementDirection
+          source_type: StockMovementSourceType
+          source_id?: string | null
+          date?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          article_id?: string
+          organization_id?: string
+          quantity_delta?: number
+          direction?: StockMovementDirection
+          source_type?: StockMovementSourceType
+          source_id?: string | null
+          date?: string
+        }
+      }
     }
   }
 }
+
+export type StockMovementDirection = "in" | "out"
+export type StockMovementSourceType = "delivery"
 
 // Convenience types
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"]
@@ -534,6 +577,7 @@ export type IssueLine = Database["public"]["Tables"]["issue_lines"]["Row"]
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type UserOrganization = Database["public"]["Tables"]["user_organizations"]["Row"]
 export type Log = Database["public"]["Tables"]["logs"]["Row"]
+export type StockMovement = Database["public"]["Tables"]["stock_movements"]["Row"]
 
 // Address and contact types from JSONB
 export interface Address {
@@ -566,8 +610,7 @@ export interface Consignment {
 
 export interface InvoiceTotals {
   htSubtotal?: number
-  vatByRate?: Record<number, number>
-  dcByRate?: Record<number, number>
+  chargesByKey?: Record<string, number>
   ttc?: number
 }
 

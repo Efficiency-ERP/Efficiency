@@ -1,12 +1,12 @@
 -- ============================================
--- 5/5 TESTING MODE — Run last (optional)
--- Creates feedback system + storage bucket
--- Enable/disable via NEXT_PUBLIC_TESTING_MODE env var
+-- 04 FEEDBACK SYSTEM — Run after seed (optional)
+-- Feedback + attachments + admin notes, storage bucket.
+-- Enable/disable client-side via NEXT_PUBLIC_TESTING_MODE env var.
 -- Safe to re-run
 -- ============================================
 
 -- ============================================
--- FEEDBACK TABLE
+-- TABLES
 -- ============================================
 
 create table if not exists feedback (
@@ -20,10 +20,6 @@ create table if not exists feedback (
   created_at timestamptz default now()
 );
 
--- ============================================
--- FEEDBACK ATTACHMENTS TABLE
--- ============================================
-
 create table if not exists feedback_attachments (
   id uuid primary key default uuid_generate_v4(),
   feedback_id uuid not null references feedback(id) on delete cascade,
@@ -31,6 +27,14 @@ create table if not exists feedback_attachments (
   file_url text not null,
   file_type text not null,
   file_size integer,
+  created_at timestamptz default now()
+);
+
+create table if not exists feedback_notes (
+  id uuid primary key default uuid_generate_v4(),
+  feedback_id uuid not null references feedback(id) on delete cascade,
+  author text,
+  body text not null,
   created_at timestamptz default now()
 );
 
@@ -42,6 +46,8 @@ create index if not exists idx_feedback_user on feedback(user_id);
 create index if not exists idx_feedback_status on feedback(status);
 create index if not exists idx_feedback_created_at on feedback(created_at desc);
 create index if not exists idx_feedback_attachments_feedback on feedback_attachments(feedback_id);
+create index if not exists idx_feedback_notes_feedback on feedback_notes(feedback_id);
+create index if not exists idx_feedback_notes_created_at on feedback_notes(created_at desc);
 
 -- ============================================
 -- STORAGE BUCKET
@@ -63,9 +69,14 @@ drop policy if exists "Users can delete own feedback attachments" on storage.obj
 -- Tables
 drop policy if exists "Anyone can read feedback" on feedback;
 drop policy if exists "Authenticated users can create feedback" on feedback;
+drop policy if exists "Anonymous users can create feedback" on feedback;
 drop policy if exists "Anyone can update feedback" on feedback;
 drop policy if exists "Anyone can read feedback attachments" on feedback_attachments;
 drop policy if exists "Authenticated users can create feedback attachments" on feedback_attachments;
+drop policy if exists "Anyone can read feedback notes" on feedback_notes;
+drop policy if exists "Anyone can create feedback notes" on feedback_notes;
+drop policy if exists "Anyone can update feedback notes" on feedback_notes;
+drop policy if exists "Anyone can delete feedback notes" on feedback_notes;
 
 -- ============================================
 -- ROW LEVEL SECURITY
@@ -73,6 +84,7 @@ drop policy if exists "Authenticated users can create feedback attachments" on f
 
 alter table if exists feedback enable row level security;
 alter table if exists feedback_attachments enable row level security;
+alter table if exists feedback_notes enable row level security;
 
 -- ============================================
 -- STORAGE POLICIES
@@ -125,3 +137,19 @@ create policy "Authenticated users can create feedback attachments"
   on feedback_attachments for insert
   to authenticated
   with check (true);
+
+create policy "Anyone can read feedback notes"
+  on feedback_notes for select
+  using (true);
+
+create policy "Anyone can create feedback notes"
+  on feedback_notes for insert
+  with check (true);
+
+create policy "Anyone can update feedback notes"
+  on feedback_notes for update
+  using (true);
+
+create policy "Anyone can delete feedback notes"
+  on feedback_notes for delete
+  using (true);

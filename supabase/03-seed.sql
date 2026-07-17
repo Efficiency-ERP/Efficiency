@@ -1,5 +1,5 @@
 -- ============================================
--- 3/5 SEED DATA — Run after RLS
+-- 03 SEED DATA — Run after RLS
 -- Inserts demo organizations, contacts, articles
 -- Safe to re-run (deletes old seed data first)
 -- ============================================
@@ -68,12 +68,14 @@ insert into contacts (id, party_type, is_internal_org, internal_organization_id,
 -- ARTICLES
 -- ============================================
 
-insert into articles (id, type, code, designation, organization_id, unit, unit_price_puht, transfer_price, vat_rate, dc_rate, stock, consignment, active) values
-  ('d1000000-0000-0000-0000-000000000001', 'product', 'P-BTL-001', 'Eau Minérale 1L', 'a1000000-0000-0000-0000-000000000001', 'pièce', 2.50, 2.20, 19, 1,
+insert into articles (id, type, code, designation, organization_id, unit, unit_price_puht, transfer_price, tax_charges, stock, consignment, active) values
+  ('d1000000-0000-0000-0000-000000000001', 'product', 'P-BTL-001', 'Eau Minérale 1L', 'a1000000-0000-0000-0000-000000000001', 'pièce', 2.50, 2.20,
+   '[{"id":"vat","label":"TVA","rate":19,"base":"ht"},{"id":"dc","label":"DC","rate":1,"base":"ht"}]'::jsonb,
    '{"onHand": 120, "minStock": 50}'::jsonb,
    '{"enabled": true, "packaging": [{"type": "BOUTEILLE", "unitsPerArticle": 12, "depositValue": 1.5}, {"type": "CASIER", "unitsPerArticle": 6, "depositValue": 5}]}'::jsonb,
    true),
-  ('d1000000-0000-0000-0000-000000000002', 'service', 'S-CONS-001', 'Consultation technique', 'a1000000-0000-0000-0000-000000000002', null, 150.00, 150.00, 19, 1,
+  ('d1000000-0000-0000-0000-000000000002', 'service', 'S-CONS-001', 'Consultation technique', 'a1000000-0000-0000-0000-000000000002', null, 150.00, 150.00,
+   '[{"id":"vat","label":"TVA","rate":19,"base":"ht"},{"id":"dc","label":"DC","rate":1,"base":"ht"}]'::jsonb,
    '{"onHand": 0, "minStock": 0}'::jsonb,
    '{"enabled": false, "packaging": []}'::jsonb,
    true);

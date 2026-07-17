@@ -4,12 +4,13 @@ import { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { updateContact } from "@/lib/supabase/contacts"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { castJson } from "@/lib/utils"
+import { PartyTypeField } from "@/components/party-type-field"
 import type { Address, ContactInfo } from "@/types/database"
 
 export default function EditContactPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,11 +18,12 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const { contacts, loading, updateContact: updateContactInStore } = useContactsStore()
   const contact = contacts.find((c) => c.id === id)
+  const logAction = useActionLog("contacts")
 
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     company_name: "",
-    party_type: "customer" as "customer" | "supplier" | "both",
+    party_type: "customer",
     mf: "",
     unique_id: "",
     address_line1: "",
@@ -63,6 +65,10 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!form.party_type) {
+      alert("Party type is required")
+      return
+    }
     setSaving(true)
     try {
       const updated = await updateContact(id, {
@@ -83,6 +89,7 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
         conditions_de_vente: form.conditions_de_vente || null,
       })
       updateContactInStore(id, updated)
+      await logAction(`Updated contact ${updated.company_name}`, updated.id)
       router.push("/dashboard/contacts")
     } catch (err) {
       console.error(err)
@@ -105,14 +112,7 @@ export default function EditContactPage({ params }: { params: Promise<{ id: stri
             </div>
             <div className="grid gap-2">
               <Label>Party Type *</Label>
-              <Select value={form.party_type} onValueChange={(v) => setForm({ ...form, party_type: v as typeof form.party_type })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="customer">Customer</SelectItem>
-                  <SelectItem value="supplier">Supplier</SelectItem>
-                  <SelectItem value="both">Both</SelectItem>
-                </SelectContent>
-              </Select>
+              <PartyTypeField value={form.party_type} onChange={(v) => setForm({ ...form, party_type: v })} contacts={contacts} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>MF</Label><Input value={form.mf} onChange={(e) => setForm({ ...form, mf: e.target.value })} /></div>

@@ -5,9 +5,10 @@ export type LogEntry = {
   timestamp: string
   userId: string
   userName: string
-  module: 'invoices' | 'contacts' | 'articles' | 'deliveries' | 'orders' | 'issues' | 'settings'
+  module: 'invoices' | 'contacts' | 'articles' | 'deliveries' | 'orders' | 'issues' | 'settings' | 'pme'
   message: string
   targetId?: string
+  organizationId?: string | null
 }
 
 export type LogsContextType = {

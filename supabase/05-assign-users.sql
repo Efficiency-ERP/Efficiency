@@ -1,6 +1,8 @@
 -- ============================================
--- 4/5 ASSIGN USERS — Run after seed + creating auth users
--- Links auth.users to organizations via user_organizations
+-- 05 ASSIGN USERS — Manual, run whenever needed
+-- Links auth.users to organizations via user_organizations.
+-- Not part of the sequential setup: run this after real users have
+-- signed up (or after seeding), editing the emails below to match.
 -- Safe to re-run (ON CONFLICT DO NOTHING)
 -- ============================================
 -- HOW TO USE:

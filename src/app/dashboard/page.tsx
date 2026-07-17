@@ -113,18 +113,11 @@ export default function DashboardHome() {
       .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
   }, [allInvoices, now])
 
-  const vatMTD = useMemo(() => {
+  const taxesMTD = useMemo(() => {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart && inv.status !== "cancelled")
-      .reduce((s, inv) => s + Object.values(castJson<InvoiceTotals>(inv.totals).vatByRate || {}).reduce((a, b) => a + b, 0), 0)
-  }, [filteredInvoices, now])
-
-  const dcMTD = useMemo(() => {
-    const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    return filteredInvoices
-      .filter((inv) => new Date(inv.date) >= mtdStart && inv.status !== "cancelled")
-      .reduce((s, inv) => s + Object.values(castJson<InvoiceTotals>(inv.totals).dcByRate || {}).reduce((a, b) => a + b, 0), 0)
+      .reduce((s, inv) => s + Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
   }, [filteredInvoices, now])
 
   const chartData = useMemo(() => {
@@ -272,11 +265,10 @@ export default function DashboardHome() {
         </Card>
         <Card className="shadow-none border border-border/40">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Tax Collected (MTD)</CardTitle>
+            <CardTitle className="text-sm">Taxes Collected (MTD)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm">TVA: {formatTND(vatMTD)}</div>
-            <div className="text-sm">DC: {formatTND(dcMTD)}</div>
+            <div className="text-2xl font-semibold">{formatTND(taxesMTD)}</div>
           </CardContent>
         </Card>
         <Card className="shadow-none border border-border/40">

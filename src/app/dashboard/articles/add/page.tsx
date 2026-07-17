@@ -5,17 +5,20 @@ import { useRouter } from "next/navigation"
 import { createArticle } from "@/lib/supabase/articles"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { usePMESelection } from "@/contexts/pme-context"
+import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Json } from "@/types/database"
+import { TaxChargesEditor, defaultTaxCharges } from "@/components/tax-charges-editor"
+import type { Json, TaxCharge } from "@/types/database"
 
 export default function AddArticlePage() {
   const router = useRouter()
   const { selectedOrgId, selectedOrgName } = usePMESelection()
   const { addArticle } = useArticlesStore()
+  const logAction = useActionLog("articles")
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     type: "product" as "product" | "service",
@@ -24,12 +27,11 @@ export default function AddArticlePage() {
     unit: "",
     unit_price_puht: 0,
     transfer_price: 0,
-    vat_rate: 19,
-    dc_rate: 1,
     stock_onHand: 0,
     stock_minStock: 0,
     consignment_enabled: false,
   })
+  const [taxCharges, setTaxCharges] = useState<TaxCharge[]>(defaultTaxCharges())
   const [packaging, setPackaging] = useState<Array<{ type: string; unitsPerArticle: number; depositValue: number }>>([])
 
   const addPackaging = () => setPackaging([...packaging, { type: "BOUTEILLE", unitsPerArticle: 12, depositValue: 1.5 }])
@@ -53,13 +55,13 @@ export default function AddArticlePage() {
         unit: form.unit || null,
         unit_price_puht: form.unit_price_puht,
         transfer_price: form.transfer_price,
-        vat_rate: form.vat_rate,
-        dc_rate: form.dc_rate,
+        tax_charges: taxCharges as unknown as Json,
         stock: { onHand: form.stock_onHand, minStock: form.stock_minStock },
         consignment: { enabled: form.consignment_enabled, packaging: validPackaging } as unknown as Json,
         active: true,
       })
       addArticle(created)
+      await logAction(`Created article ${created.code} — ${created.designation}`, created.id, created.organization_id)
       router.push("/dashboard/articles")
     } catch (err) {
       console.error(err)
@@ -104,10 +106,13 @@ export default function AddArticlePage() {
               <div className="grid gap-2"><Label>PUHT</Label><Input type="number" step="0.01" value={form.unit_price_puht} onChange={(e) => setForm({ ...form, unit_price_puht: Number(e.target.value) })} /></div>
               <div className="grid gap-2"><Label>Transfer Price</Label><Input type="number" step="0.01" value={form.transfer_price} onChange={(e) => setForm({ ...form, transfer_price: Number(e.target.value) })} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>TVA %</Label><Input type="number" step="0.01" value={form.vat_rate} onChange={(e) => setForm({ ...form, vat_rate: Number(e.target.value) })} /></div>
-              <div className="grid gap-2"><Label>DC %</Label><Input type="number" step="0.01" value={form.dc_rate} onChange={(e) => setForm({ ...form, dc_rate: Number(e.target.value) })} /></div>
-            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Taxes</CardTitle></CardHeader>
+          <CardContent>
+            <TaxChargesEditor charges={taxCharges} onChange={setTaxCharges} />
           </CardContent>
         </Card>
 

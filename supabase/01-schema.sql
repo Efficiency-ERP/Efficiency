@@ -1,6 +1,6 @@
 -- ============================================
--- 1/5 SCHEMA — Run first
--- Creates all tables, enums, indexes, functions
+-- 01 SCHEMA — Run first
+-- Extensions, enums, tables, indexes, functions.
 -- Safe to re-run (never drops data)
 -- ============================================
 
@@ -10,11 +10,6 @@ create extension if not exists "uuid-ossp";
 -- ============================================
 -- ENUMS
 -- ============================================
-
-do $$ begin
-  create type party_type as enum ('customer', 'supplier', 'both');
-exception when duplicate_object then null;
-end $$;
 
 do $$ begin
   create type article_type as enum ('product', 'service');
@@ -61,9 +56,11 @@ create table if not exists organizations (
   created_at timestamptz default now()
 );
 
+-- party_type is free text (not an enum) so contacts can be tagged with any
+-- custom type (e.g. "Distributeur", "Transporteur") via the "Other..." option.
 create table if not exists contacts (
   id uuid primary key default uuid_generate_v4(),
-  party_type party_type not null default 'customer',
+  party_type text not null default 'customer',
   is_internal_org boolean default false,
   internal_organization_id uuid references organizations(id) on delete set null,
   company_name text not null,
@@ -76,6 +73,8 @@ create table if not exists contacts (
   created_at timestamptz default now()
 );
 
+-- tax_charges is an ordered list of {id, label, rate, base} objects, replacing
+-- fixed vat_rate/dc_rate columns so articles can carry any number of charges.
 create table if not exists articles (
   id uuid primary key default uuid_generate_v4(),
   type article_type not null default 'product',
@@ -85,8 +84,7 @@ create table if not exists articles (
   unit text,
   unit_price_puht numeric(12,2) not null default 0,
   transfer_price numeric(12,2) not null default 0,
-  vat_rate numeric(5,2) not null default 19,
-  dc_rate numeric(5,2) not null default 1,
+  tax_charges jsonb not null default '[{"id":"vat","label":"TVA","rate":19,"base":"ht"},{"id":"dc","label":"DC","rate":1,"base":"ht"}]'::jsonb,
   stock jsonb default '{"onHand": 0, "minStock": 0}'::jsonb,
   consignment jsonb default '{"enabled": false, "packaging": []}'::jsonb,
   active boolean default true,
@@ -104,7 +102,7 @@ create table if not exists invoices (
   type invoice_type not null default 'standard',
   status invoice_status not null default 'draft',
   payment_method text,
-  totals jsonb default '{"htSubtotal": 0, "vatByRate": {}, "dcByRate": {}, "ttc": 0}'::jsonb,
+  totals jsonb default '{"htSubtotal": 0, "chargesByKey": {}, "ttc": 0}'::jsonb,
   "references" jsonb default '{}'::jsonb,
   notes text,
   created_at timestamptz default now()
@@ -120,8 +118,7 @@ create table if not exists invoice_lines (
   quantity numeric(12,2) not null default 1,
   unit_price_puht numeric(12,2) not null default 0,
   remise_percent numeric(5,2) default 0,
-  vat_rate numeric(5,2) not null default 19,
-  dc_rate numeric(5,2) not null default 1
+  tax_charges jsonb not null default '[]'::jsonb
 );
 
 create table if not exists consignment_lines (
@@ -151,10 +148,25 @@ create table if not exists deliveries (
 create table if not exists delivery_lines (
   id uuid primary key default uuid_generate_v4(),
   delivery_id uuid not null references deliveries(id) on delete cascade,
+  article_id uuid references articles(id) on delete set null,
   code text not null,
   designation text not null,
   unit text,
   quantity numeric(12,2) not null default 1
+);
+
+-- Ledger of stock in/out movements. Deliveries write "out" rows for any line
+-- tied to an article_id; articles.stock.onHand is kept in sync on write.
+create table if not exists stock_movements (
+  id uuid primary key default uuid_generate_v4(),
+  article_id uuid not null references articles(id) on delete cascade,
+  organization_id uuid not null references organizations(id) on delete restrict,
+  quantity_delta numeric(12,2) not null,
+  direction text not null,
+  source_type text not null,
+  source_id uuid,
+  date date not null default current_date,
+  created_at timestamptz default now()
 );
 
 create table if not exists orders (
@@ -240,6 +252,10 @@ create index if not exists idx_invoices_date on invoices(date);
 create index if not exists idx_invoice_lines_invoice on invoice_lines(invoice_id);
 create index if not exists idx_deliveries_number on deliveries(number);
 create index if not exists idx_deliveries_organization on deliveries(organization_id);
+create index if not exists idx_delivery_lines_article on delivery_lines(article_id);
+create index if not exists idx_stock_movements_article on stock_movements(article_id);
+create index if not exists idx_stock_movements_organization on stock_movements(organization_id);
+create index if not exists idx_stock_movements_date on stock_movements(date desc);
 create index if not exists idx_orders_number on orders(number);
 create index if not exists idx_orders_organization on orders(organization_id);
 create index if not exists idx_issues_number on issues(number);
@@ -269,66 +285,3 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
-
--- Function to compute invoice totals
-create or replace function compute_invoice_totals(inv_id uuid)
-returns jsonb as $$
-declare
-  ht_subtotal numeric := 0;
-  vat_by_rate jsonb := '{}'::jsonb;
-  dc_by_rate jsonb := '{}'::jsonb;
-  total_vat numeric := 0;
-  total_dc numeric := 0;
-  ttc numeric := 0;
-  line record;
-  remise numeric;
-  puht_net numeric;
-  ht numeric;
-  vat_amount numeric;
-  dc_amount numeric;
-begin
-  for line in
-    select * from invoice_lines where invoice_id = inv_id
-  loop
-    remise := case when line.remise_percent > 0
-      then (line.unit_price_puht * line.remise_percent) / 100
-      else 0 end;
-    puht_net := line.unit_price_puht - remise;
-    ht := puht_net * line.quantity;
-
-    vat_amount := (ht * line.vat_rate) / 100;
-    dc_amount := (ht * line.dc_rate) / 100;
-
-    ht_subtotal := ht_subtotal + ht;
-
-    if vat_by_rate ? line.vat_rate::text then
-      vat_by_rate := vat_by_rate || jsonb_build_object(
-        line.vat_rate::text,
-        (vat_by_rate->>line.vat_rate::text)::numeric + vat_amount
-      );
-    else
-      vat_by_rate := vat_by_rate || jsonb_build_object(line.vat_rate::text, vat_amount);
-    end if;
-
-    if dc_by_rate ? line.dc_rate::text then
-      dc_by_rate := dc_by_rate || jsonb_build_object(
-        line.dc_rate::text,
-        (dc_by_rate->>line.dc_rate::text)::numeric + dc_amount
-      );
-    else
-      dc_by_rate := dc_by_rate || jsonb_build_object(line.dc_rate::text, dc_amount);
-    end if;
-  end loop;
-
-  select into total_vat coalesce(sum(value::numeric), 0) from jsonb_each_text(vat_by_rate);
-  select into total_dc coalesce(sum(value::numeric), 0) from jsonb_each_text(dc_by_rate);
-  ttc := ht_subtotal + total_vat + total_dc;
-
-  return jsonb_build_object(
-    'htSubtotal', ht_subtotal,
-    'vatByRate', vat_by_rate,
-    'dcByRate', dc_by_rate,
-    'ttc', ttc
-  );
-end;
-$$ language plpgsql;

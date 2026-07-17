@@ -1,5 +1,5 @@
 -- ============================================
--- 2/5 ROW LEVEL SECURITY — Run after schema
+-- 02 ROW LEVEL SECURITY — Run after schema
 -- Enables RLS + creates all access policies
 -- Safe to re-run
 -- ============================================
@@ -13,6 +13,7 @@ alter table if exists invoice_lines enable row level security;
 alter table if exists consignment_lines enable row level security;
 alter table if exists deliveries enable row level security;
 alter table if exists delivery_lines enable row level security;
+alter table if exists stock_movements enable row level security;
 alter table if exists orders enable row level security;
 alter table if exists order_lines enable row level security;
 alter table if exists issues enable row level security;
@@ -74,6 +75,10 @@ drop policy if exists "Users can update deliveries" on deliveries;
 -- delivery_lines
 drop policy if exists "Users can view delivery lines" on delivery_lines;
 drop policy if exists "Users can manage delivery lines" on delivery_lines;
+
+-- stock_movements
+drop policy if exists "Users can view stock movements" on stock_movements;
+drop policy if exists "Users can create stock movements" on stock_movements;
 
 -- orders
 drop policy if exists "Users can view orders" on orders;
@@ -232,6 +237,17 @@ create policy "Users can manage delivery lines"
   to authenticated
   using (true);
 
+-- STOCK MOVEMENTS
+create policy "Users can view stock movements"
+  on stock_movements for select
+  to authenticated
+  using (organization_id in (select public.user_organization_ids()));
+
+create policy "Users can create stock movements"
+  on stock_movements for insert
+  to authenticated
+  with check (true);
+
 -- ORDERS
 create policy "Users can view orders"
   on orders for select
@@ -298,10 +314,13 @@ create policy "Users can update own profile"
   using (id = auth.uid());
 
 -- LOGS
+-- organization_id can be null for actions with no single owning PME (contacts,
+-- PME creation, profile/settings changes) — those rows are global activity
+-- and must stay visible, not just ones scoped to the caller's PMEs.
 create policy "Users can view logs"
   on logs for select
   to authenticated
-  using (organization_id in (select public.user_organization_ids()));
+  using (organization_id is null or organization_id in (select public.user_organization_ids()));
 
 create policy "Users can create logs"
   on logs for insert

@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import type { Stock, Consignment, ConsignmentPackaging } from "@/types/database"
-import { formatTND } from "@/lib/utils"
+import type { Stock, Consignment, ConsignmentPackaging, TaxCharge } from "@/types/database"
+import { formatTND, castJson } from "@/lib/utils"
+import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { useState } from "react"
 
 export default function ArticleSummaryPage({ params }: { params: Promise<{ id: string }> }) {
@@ -48,8 +49,7 @@ export default function ArticleSummaryPage({ params }: { params: Promise<{ id: s
             <div><span className="text-muted-foreground">Unit:</span> {article.unit || "N/A"}</div>
             <div><span className="text-muted-foreground">PUHT:</span> {formatTND(article.unit_price_puht)}</div>
             <div><span className="text-muted-foreground">Transfer Price:</span> {formatTND(article.transfer_price)}</div>
-            <div><span className="text-muted-foreground">TVA:</span> {article.vat_rate}%</div>
-            <div><span className="text-muted-foreground">DC:</span> {article.dc_rate}%</div>
+            <div><span className="text-muted-foreground">Taxes:</span> {formatTaxCharges(castJson<TaxCharge[]>(article.tax_charges))}</div>
           </CardContent>
         </Card>
         {article.type === "product" && (
