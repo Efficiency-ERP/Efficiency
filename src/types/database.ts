@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type PartyType = "customer" | "supplier" | "both"
+export type PartyType = string
 export type ArticleType = "product" | "service"
 export type PackagingType = "BOUTEILLE" | "PALETTE" | "CASIER"
 export type InvoiceType = "standard" | "credit" | "debit"

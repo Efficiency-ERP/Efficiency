@@ -7,16 +7,16 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { PartyTypeField } from "@/components/party-type-field"
 
 export default function AddContactPage() {
   const router = useRouter()
-  const { addContact } = useContactsStore()
+  const { addContact, contacts } = useContactsStore()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     company_name: "",
-    party_type: "customer" as "customer" | "supplier" | "both",
+    party_type: "customer",
     mf: "",
     unique_id: "",
     address_line1: "",
@@ -32,6 +32,10 @@ export default function AddContactPage() {
     e.preventDefault()
     if (!form.company_name) {
       alert("Company name is required")
+      return
+    }
+    if (!form.party_type) {
+      alert("Party type is required")
       return
     }
     setLoading(true)
@@ -81,14 +85,7 @@ export default function AddContactPage() {
             </div>
             <div className="grid gap-2">
               <Label>Party Type *</Label>
-              <Select value={form.party_type} onValueChange={(v) => setForm({ ...form, party_type: v as typeof form.party_type })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="customer">Customer</SelectItem>
-                  <SelectItem value="supplier">Supplier</SelectItem>
-                  <SelectItem value="both">Both</SelectItem>
-                </SelectContent>
-              </Select>
+              <PartyTypeField value={form.party_type} onChange={(v) => setForm({ ...form, party_type: v })} contacts={contacts} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">

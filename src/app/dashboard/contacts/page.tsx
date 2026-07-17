@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
+import { partyTypeSuggestions } from "@/components/party-type-field"
 import type { Contact } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
 
@@ -18,6 +19,7 @@ export default function ListContactsPage() {
   const { selectedOrgId } = usePMESelection()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
+  const customTypes = useMemo(() => partyTypeSuggestions(contacts), [contacts])
 
   const filteredContacts = useMemo(() => {
     return contacts.filter((c) => {
@@ -120,6 +122,9 @@ export default function ListContactsPage() {
             <SelectItem value="customer">Customer</SelectItem>
             <SelectItem value="supplier">Supplier</SelectItem>
             <SelectItem value="both">Both</SelectItem>
+            {customTypes.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
