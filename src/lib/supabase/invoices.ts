@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import type { Invoice, InvoiceLine, ConsignmentLine, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine } from "@/types/database"
+import type { Invoice, InvoiceLine, ConsignmentLine, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, TaxCharge } from "@/types/database"
 
 // ============================================
 // INVOICES
@@ -57,7 +57,7 @@ export async function getConsignments(invoiceId: string): Promise<ConsignmentLin
 
 export async function createInvoice(
   invoice: Omit<Invoice, "id" | "created_at" | "totals">,
-  lines: Omit<InvoiceLine, "id" | "invoice_id">[],
+  lines: (Omit<InvoiceLine, "id" | "invoice_id"> & { transfer_price?: number })[],
   consignments: Omit<ConsignmentLine, "id" | "invoice_id">[]
 ): Promise<Invoice> {
   const supabase = createClient()
@@ -73,7 +73,7 @@ export async function createInvoice(
   if (lines.length > 0) {
     const { error: linesError } = await supabase
       .from("invoice_lines")
-      .insert(lines.map((l) => ({ ...l, invoice_id: inv.id })))
+      .insert(lines.map(({ transfer_price: _transferPrice, ...l }) => ({ ...l, invoice_id: inv.id })))
 
     if (linesError) throw linesError
   }
@@ -86,7 +86,7 @@ export async function createInvoice(
     if (consError) throw consError
   }
 
-  const totals = computeInvoiceTotals(lines)
+  const totals = computeInvoiceTotals(lines.map((l) => ({ ...l, tax_charges: l.tax_charges as unknown as TaxCharge[] })))
   const { data: updated, error: updateError } = await supabase
     .from("invoices")
     .update({ totals })
@@ -327,30 +327,38 @@ export async function createIssue(
 // UTILITY FUNCTIONS
 // ============================================
 
-export function computeInvoiceTotals(lines: { unit_price_puht: number; remise_percent?: number | null; quantity: number; vat_rate: number; dc_rate: number }[]) {
+export function computeInvoiceTotals(lines: {
+  unit_price_puht: number
+  remise_percent?: number | null
+  quantity: number
+  transfer_price?: number | null
+  tax_charges: TaxCharge[]
+}[]) {
   let htSubtotal = 0
-  const vatByRate: Record<number, number> = {}
-  const dcByRate: Record<number, number> = {}
+  const chargesByKey: Record<string, number> = {}
+  let ttc = 0
 
   for (const line of lines) {
     const remise = line.remise_percent ? (line.unit_price_puht * line.remise_percent) / 100 : 0
-    const puhtNet = line.unit_price_puht - remise
-    const ht = puhtNet * line.quantity
+    const ht = (line.unit_price_puht - remise) * line.quantity
+    const transferAmount = (line.transfer_price || 0) * line.quantity
 
     htSubtotal += ht
 
-    const vatAmount = (ht * line.vat_rate) / 100
-    const dcAmount = (ht * line.dc_rate) / 100
-
-    vatByRate[line.vat_rate] = (vatByRate[line.vat_rate] || 0) + vatAmount
-    dcByRate[line.dc_rate] = (dcByRate[line.dc_rate] || 0) + dcAmount
+    let cumulative = ht
+    let lineTotal = ht
+    for (const charge of line.tax_charges) {
+      const base = charge.base === "transfer" ? transferAmount : charge.base === "cumulative" ? cumulative : ht
+      const amount = (base * charge.rate) / 100
+      const key = `${charge.label} ${charge.rate}%`
+      chargesByKey[key] = (chargesByKey[key] || 0) + amount
+      cumulative += amount
+      lineTotal += amount
+    }
+    ttc += lineTotal
   }
 
-  const vatTotal = Object.values(vatByRate).reduce((a, b) => a + b, 0)
-  const dcTotal = Object.values(dcByRate).reduce((a, b) => a + b, 0)
-  const ttc = htSubtotal + vatTotal + dcTotal
-
-  return { htSubtotal, vatByRate, dcByRate, ttc }
+  return { htSubtotal, chargesByKey, ttc }
 }
 
 export function generateInvoiceNumber(): string {

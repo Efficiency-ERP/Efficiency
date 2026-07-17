@@ -16,6 +16,15 @@ export type CounterpartyKind = "contact" | "organization"
 export type OrderType = "supplier" | "interco" | "customer"
 export type DocumentStatus = "draft" | "final"
 
+export type TaxBase = "ht" | "transfer" | "cumulative"
+
+export interface TaxCharge {
+  id: string
+  label: string
+  rate: number
+  base: TaxBase
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -103,8 +112,7 @@ export interface Database {
           unit: string | null
           unit_price_puht: number
           transfer_price: number
-          vat_rate: number
-          dc_rate: number
+          tax_charges: Json
           stock: Json
           consignment: Json
           active: boolean
@@ -119,8 +127,7 @@ export interface Database {
           unit?: string | null
           unit_price_puht?: number
           transfer_price?: number
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
           stock?: Json
           consignment?: Json
           active?: boolean
@@ -135,8 +142,7 @@ export interface Database {
           unit?: string | null
           unit_price_puht?: number
           transfer_price?: number
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
           stock?: Json
           consignment?: Json
           active?: boolean
@@ -202,8 +208,7 @@ export interface Database {
           quantity: number
           unit_price_puht: number
           remise_percent: number | null
-          vat_rate: number
-          dc_rate: number
+          tax_charges: Json
         }
         Insert: {
           id?: string
@@ -215,8 +220,7 @@ export interface Database {
           quantity?: number
           unit_price_puht?: number
           remise_percent?: number | null
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
         }
         Update: {
           id?: string
@@ -228,8 +232,7 @@ export interface Database {
           quantity?: number
           unit_price_puht?: number
           remise_percent?: number | null
-          vat_rate?: number
-          dc_rate?: number
+          tax_charges?: Json
         }
       }
       consignment_lines: {
@@ -566,8 +569,7 @@ export interface Consignment {
 
 export interface InvoiceTotals {
   htSubtotal?: number
-  vatByRate?: Record<number, number>
-  dcByRate?: Record<number, number>
+  chargesByKey?: Record<string, number>
   ttc?: number
 }
 

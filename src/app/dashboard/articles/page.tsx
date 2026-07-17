@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
-import type { Article, Stock, Consignment } from "@/types/database"
+import type { Article, Stock, Consignment, TaxCharge } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
 import { castJson } from "@/lib/utils"
+import { formatTaxCharges } from "@/components/tax-charges-editor"
 
 export default function ListArticlesPage() {
   const router = useRouter()
@@ -74,12 +75,9 @@ export default function ListArticlesPage() {
       cell: ({ row }) => `${row.original.transfer_price} TND`,
     },
     {
-      accessorKey: "vat_rate",
-      header: "TVA %",
-    },
-    {
-      accessorKey: "dc_rate",
-      header: "DC %",
+      accessorKey: "tax_charges",
+      header: "Taxes",
+      cell: ({ row }) => formatTaxCharges(castJson<TaxCharge[]>(row.original.tax_charges)),
     },
     {
       accessorKey: "stock",

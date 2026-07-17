@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Stock, Consignment, Json } from "@/types/database"
+import { TaxChargesEditor, defaultTaxCharges } from "@/components/tax-charges-editor"
+import { castJson } from "@/lib/utils"
+import type { Stock, Consignment, Json, TaxCharge } from "@/types/database"
 
 export default function EditArticlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -25,12 +27,11 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
     unit: "",
     unit_price_puht: 0,
     transfer_price: 0,
-    vat_rate: 19,
-    dc_rate: 1,
     stock_onHand: 0,
     stock_minStock: 0,
     consignment_enabled: false,
   })
+  const [taxCharges, setTaxCharges] = useState<TaxCharge[]>(defaultTaxCharges())
   const [packaging, setPackaging] = useState<Array<{ type: string; unitsPerArticle: number; depositValue: number }>>([])
 
   useEffect(() => {
@@ -44,12 +45,12 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
         unit: article.unit || "",
         unit_price_puht: article.unit_price_puht,
         transfer_price: article.transfer_price,
-        vat_rate: article.vat_rate,
-        dc_rate: article.dc_rate,
         stock_onHand: stock.onHand,
         stock_minStock: stock.minStock,
         consignment_enabled: consignment.enabled,
       })
+      const charges = castJson<TaxCharge[]>(article.tax_charges)
+      setTaxCharges(charges.length > 0 ? charges : defaultTaxCharges())
       setPackaging(consignment.packaging.map((p) => ({ type: p.type, unitsPerArticle: p.unitsPerArticle, depositValue: p.depositValue })))
     }
   }, [article])
@@ -73,8 +74,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
         unit: form.unit || null,
         unit_price_puht: form.unit_price_puht,
         transfer_price: form.transfer_price,
-        vat_rate: form.vat_rate,
-        dc_rate: form.dc_rate,
+        tax_charges: taxCharges as unknown as Json,
         stock: { onHand: form.stock_onHand, minStock: form.stock_minStock },
         consignment: { enabled: form.consignment_enabled, packaging: validPackaging } as unknown as Json,
       })
@@ -110,10 +110,13 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
               <div className="grid gap-2"><Label>PUHT</Label><Input type="number" step="0.01" value={form.unit_price_puht} onChange={(e) => setForm({ ...form, unit_price_puht: Number(e.target.value) })} /></div>
               <div className="grid gap-2"><Label>Transfer Price</Label><Input type="number" step="0.01" value={form.transfer_price} onChange={(e) => setForm({ ...form, transfer_price: Number(e.target.value) })} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>TVA %</Label><Input type="number" step="0.01" value={form.vat_rate} onChange={(e) => setForm({ ...form, vat_rate: Number(e.target.value) })} /></div>
-              <div className="grid gap-2"><Label>DC %</Label><Input type="number" step="0.01" value={form.dc_rate} onChange={(e) => setForm({ ...form, dc_rate: Number(e.target.value) })} /></div>
-            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Taxes</CardTitle></CardHeader>
+          <CardContent>
+            <TaxChargesEditor charges={taxCharges} onChange={setTaxCharges} />
           </CardContent>
         </Card>
         {form.type === "product" && (

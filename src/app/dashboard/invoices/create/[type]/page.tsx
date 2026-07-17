@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useState, Fragment } from "react"
 import { useRouter } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
@@ -11,8 +11,9 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PAYMENT_METHODS } from "@/lib/utils"
-import type { Json, PaymentMethod } from "@/types/database"
+import { PAYMENT_METHODS, castJson } from "@/lib/utils"
+import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
+import type { Json, PaymentMethod, TaxCharge } from "@/types/database"
 
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
@@ -28,7 +29,8 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [dueDate, setDueDate] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("")
   const [notes, setNotes] = useState("")
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; vat_rate: number; dc_rate: number; article_id: string | null }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
+  const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
 
   const invoiceType = type as "standard" | "credit" | "debit"
@@ -42,14 +44,14 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       unit: article.unit,
       quantity: invoiceType === "credit" ? -1 : 1,
       unit_price_puht: article.unit_price_puht,
-      vat_rate: article.vat_rate,
-      dc_rate: article.dc_rate,
+      transfer_price: article.transfer_price,
+      tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),
       article_id: article.id,
     }])
   }
 
   const addFreeformLine = () => {
-    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, vat_rate: 19, dc_rate: 1, article_id: null }])
+    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null }])
   }
 
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => {
@@ -76,8 +78,8 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         quantity: l.quantity,
         unit_price_puht: l.unit_price_puht,
         remise_percent: 0,
-        vat_rate: l.vat_rate,
-        dc_rate: l.dc_rate,
+        tax_charges: l.tax_charges as unknown as Json,
+        transfer_price: l.transfer_price,
       }))
 
       await createInvoice(
@@ -196,23 +198,34 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                     <th className="text-right p-2">Qty</th>
                     <th className="text-left p-2">Unit</th>
                     <th className="text-right p-2">PUHT</th>
-                    <th className="text-right p-2">TVA %</th>
-                    <th className="text-right p-2">DC %</th>
+                    <th className="text-left p-2">Taxes</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {lines.map((line, i) => (
-                    <tr key={i} className="border-b">
-                      <td className="p-1"><Input value={line.code} onChange={(e) => updateLine(i, { code: e.target.value })} className="h-8" /></td>
-                      <td className="p-1"><Input value={line.designation} onChange={(e) => updateLine(i, { designation: e.target.value })} className="h-8" /></td>
-                      <td className="p-1"><Input type="number" value={line.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
-                      <td className="p-1"><Input value={line.unit || ""} onChange={(e) => updateLine(i, { unit: e.target.value || null })} className="h-8 w-20" /></td>
-                      <td className="p-1"><Input type="number" step="0.01" value={line.unit_price_puht} onChange={(e) => updateLine(i, { unit_price_puht: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
-                      <td className="p-1"><Input type="number" step="0.01" value={line.vat_rate} onChange={(e) => updateLine(i, { vat_rate: Number(e.target.value) })} className="h-8 w-16 text-right" /></td>
-                      <td className="p-1"><Input type="number" step="0.01" value={line.dc_rate} onChange={(e) => updateLine(i, { dc_rate: Number(e.target.value) })} className="h-8 w-16 text-right" /></td>
-                      <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td>
-                    </tr>
+                    <Fragment key={i}>
+                      <tr className="border-b">
+                        <td className="p-1"><Input value={line.code} onChange={(e) => updateLine(i, { code: e.target.value })} className="h-8" /></td>
+                        <td className="p-1"><Input value={line.designation} onChange={(e) => updateLine(i, { designation: e.target.value })} className="h-8" /></td>
+                        <td className="p-1"><Input type="number" value={line.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
+                        <td className="p-1"><Input value={line.unit || ""} onChange={(e) => updateLine(i, { unit: e.target.value || null })} className="h-8 w-20" /></td>
+                        <td className="p-1"><Input type="number" step="0.01" value={line.unit_price_puht} onChange={(e) => updateLine(i, { unit_price_puht: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
+                        <td className="p-1">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setExpandedLine(expandedLine === i ? null : i)}>
+                            {formatTaxCharges(line.tax_charges)}
+                          </Button>
+                        </td>
+                        <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td>
+                      </tr>
+                      {expandedLine === i && (
+                        <tr className="border-b bg-muted/30">
+                          <td colSpan={7} className="p-3">
+                            <TaxChargesEditor charges={line.tax_charges} onChange={(charges) => updateLine(i, { tax_charges: charges })} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -224,8 +237,9 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.htSubtotal.toFixed(2)} TND</span></div>
-            <div className="flex justify-between"><span>TVA:</span><span>{Object.values(totals.vatByRate).reduce((a, b) => a + b, 0).toFixed(2)} TND</span></div>
-            <div className="flex justify-between"><span>DC:</span><span>{Object.values(totals.dcByRate).reduce((a, b) => a + b, 0).toFixed(2)} TND</span></div>
+            {Object.entries(totals.chargesByKey).map(([key, amount]) => (
+              <div key={key} className="flex justify-between"><span>{key}:</span><span>{amount.toFixed(2)} TND</span></div>
+            ))}
             <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.ttc.toFixed(2)} TND</span></div>
           </CardContent>
         </Card>
