@@ -10,11 +10,12 @@ export type PartyType = string
 export type ArticleType = "product" | "service"
 export type PackagingType = "BOUTEILLE" | "PALETTE" | "CASIER"
 export type InvoiceType = "standard" | "credit" | "debit"
-export type InvoiceStatus = "draft" | "sent" | "paid" | "cancelled"
+export type InvoiceDirection = "in" | "out"
 export type PaymentMethod = "especes" | "cheque" | "virement" | "traite" | "carte"
 export type CounterpartyKind = "contact" | "organization"
 export type OrderType = "supplier" | "interco" | "customer"
 export type DocumentStatus = "draft" | "final"
+export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected"
 
 export type TaxBase = "ht" | "transfer" | "cumulative"
 
@@ -148,6 +149,78 @@ export interface Database {
           active?: boolean
         }
       }
+      quotes: {
+        Row: {
+          id: string
+          number: string
+          date: string
+          organization_id: string
+          counterparty_id: string
+          status: QuoteStatus
+          totals: Json
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          number: string
+          date?: string
+          organization_id: string
+          counterparty_id: string
+          status?: QuoteStatus
+          totals?: Json
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          number?: string
+          date?: string
+          organization_id?: string
+          counterparty_id?: string
+          status?: QuoteStatus
+          totals?: Json
+          notes?: string | null
+        }
+      }
+      quote_lines: {
+        Row: {
+          id: string
+          quote_id: string
+          article_id: string | null
+          code: string
+          designation: string
+          unit: string | null
+          quantity: number
+          unit_price_puht: number
+          remise_percent: number | null
+          tax_charges: Json
+        }
+        Insert: {
+          id?: string
+          quote_id: string
+          article_id?: string | null
+          code: string
+          designation: string
+          unit?: string | null
+          quantity?: number
+          unit_price_puht?: number
+          remise_percent?: number | null
+          tax_charges?: Json
+        }
+        Update: {
+          id?: string
+          quote_id?: string
+          article_id?: string | null
+          code?: string
+          designation?: string
+          unit?: string | null
+          quantity?: number
+          unit_price_puht?: number
+          remise_percent?: number | null
+          tax_charges?: Json
+        }
+      }
       invoices: {
         Row: {
           id: string
@@ -158,10 +231,11 @@ export interface Database {
           counterparty_kind: CounterpartyKind
           counterparty_id: string
           type: InvoiceType
-          status: InvoiceStatus
+          direction: InvoiceDirection
           payment_method: PaymentMethod | null
           totals: Json
-          references: Json
+          source_quote_id: string | null
+          original_invoice_id: string | null
           notes: string | null
           created_at: string
         }
@@ -174,10 +248,11 @@ export interface Database {
           counterparty_kind: CounterpartyKind
           counterparty_id: string
           type: InvoiceType
-          status?: InvoiceStatus
+          direction: InvoiceDirection
           payment_method?: PaymentMethod | null
           totals?: Json
-          references?: Json
+          source_quote_id?: string | null
+          original_invoice_id?: string | null
           notes?: string | null
           created_at?: string
         }
@@ -190,10 +265,11 @@ export interface Database {
           counterparty_kind?: CounterpartyKind
           counterparty_id?: string
           type?: InvoiceType
-          status?: InvoiceStatus
+          direction?: InvoiceDirection
           payment_method?: PaymentMethod | null
           totals?: Json
-          references?: Json
+          source_quote_id?: string | null
+          original_invoice_id?: string | null
           notes?: string | null
         }
       }
@@ -277,7 +353,7 @@ export interface Database {
           driver_name: string | null
           vehicle_registration: string | null
           status: DocumentStatus
-          references: Json
+          source_quote_id: string | null
           created_at: string
         }
         Insert: {
@@ -289,7 +365,7 @@ export interface Database {
           driver_name?: string | null
           vehicle_registration?: string | null
           status?: DocumentStatus
-          references?: Json
+          source_quote_id?: string | null
           created_at?: string
         }
         Update: {
@@ -301,7 +377,7 @@ export interface Database {
           driver_name?: string | null
           vehicle_registration?: string | null
           status?: DocumentStatus
-          references?: Json
+          source_quote_id?: string | null
         }
       }
       delivery_lines: {
@@ -342,6 +418,7 @@ export interface Database {
           counterparty_id: string
           type: OrderType
           status: DocumentStatus
+          source_invoice_id: string | null
           created_at: string
         }
         Insert: {
@@ -352,6 +429,7 @@ export interface Database {
           counterparty_id: string
           type: OrderType
           status?: DocumentStatus
+          source_invoice_id?: string | null
           created_at?: string
         }
         Update: {
@@ -362,6 +440,7 @@ export interface Database {
           counterparty_id?: string
           type?: OrderType
           status?: DocumentStatus
+          source_invoice_id?: string | null
         }
       }
       order_lines: {
@@ -401,7 +480,6 @@ export interface Database {
           organization_id: string
           counterparty_id: string
           status: DocumentStatus
-          references: Json
           created_at: string
         }
         Insert: {
@@ -411,7 +489,6 @@ export interface Database {
           organization_id: string
           counterparty_id: string
           status?: DocumentStatus
-          references?: Json
           created_at?: string
         }
         Update: {
@@ -421,7 +498,6 @@ export interface Database {
           organization_id?: string
           counterparty_id?: string
           status?: DocumentStatus
-          references?: Json
         }
       }
       issue_lines: {
@@ -565,6 +641,8 @@ export type StockMovementSourceType = "delivery"
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"]
 export type Contact = Database["public"]["Tables"]["contacts"]["Row"]
 export type Article = Database["public"]["Tables"]["articles"]["Row"]
+export type Quote = Database["public"]["Tables"]["quotes"]["Row"]
+export type QuoteLine = Database["public"]["Tables"]["quote_lines"]["Row"]
 export type Invoice = Database["public"]["Tables"]["invoices"]["Row"]
 export type InvoiceLine = Database["public"]["Tables"]["invoice_lines"]["Row"]
 export type ConsignmentLine = Database["public"]["Tables"]["consignment_lines"]["Row"]
@@ -612,10 +690,4 @@ export interface InvoiceTotals {
   htSubtotal?: number
   chargesByKey?: Record<string, number>
   ttc?: number
-}
-
-export interface InvoiceReferences {
-  orderId?: string
-  deliveryId?: string
-  originalInvoiceId?: string
 }
