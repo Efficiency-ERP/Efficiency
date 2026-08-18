@@ -18,13 +18,13 @@ export default function AllInvoicesPage() {
   const { selectedOrgId } = usePMESelection()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [directionFilter, setDirectionFilter] = useState<string>("all")
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const status = searchParams.get("status")
-    if (status) setStatusFilter(status)
+    const direction = searchParams.get("direction")
+    if (direction) setDirectionFilter(direction)
   }, [searchParams])
 
   useEffect(() => {
@@ -49,23 +49,14 @@ export default function AllInvoicesPage() {
         if (!inv.number.toLowerCase().includes(q)) return false
       }
       if (typeFilter !== "all" && inv.type !== typeFilter) return false
-      if (statusFilter !== "all" && inv.status !== statusFilter) return false
+      if (directionFilter !== "all" && inv.direction !== directionFilter) return false
       return true
     })
-  }, [invoices, search, typeFilter, statusFilter])
+  }, [invoices, search, typeFilter, directionFilter])
 
   const totalCount = invoices.length
-  const paidCount = invoices.filter((i) => i.status === "paid").length
-  const outstanding = invoices.filter((i) => i.status === "sent").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
-
-  const statusVariant = (status: string) => {
-    switch (status) {
-      case "paid": return "default" as const
-      case "sent": return "secondary" as const
-      case "cancelled": return "destructive" as const
-      default: return "outline" as const
-    }
-  }
+  const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
+  const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
 
   if (loading) return <div className="text-muted-foreground">Loading invoices...</div>
 
@@ -77,8 +68,8 @@ export default function AllInvoicesPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{totalCount}</CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Paid</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{paidCount}</CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Outstanding</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatTND(outstanding)}</CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Money In</CardTitle></CardHeader><CardContent className="text-2xl font-semibold text-emerald-600">{formatTND(moneyIn)}</CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Money Out</CardTitle></CardHeader><CardContent className="text-2xl font-semibold text-red-600">{formatTND(moneyOut)}</CardContent></Card>
       </div>
       <div className="flex gap-4">
         <Input
@@ -96,14 +87,12 @@ export default function AllInvoicesPage() {
             <SelectItem value="debit">Debit</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Status" /></SelectTrigger>
+        <Select value={directionFilter} onValueChange={setDirectionFilter}>
+          <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="sent">Sent</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="all">All Directions</SelectItem>
+            <SelectItem value="in">Money In</SelectItem>
+            <SelectItem value="out">Money Out</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -114,7 +103,7 @@ export default function AllInvoicesPage() {
               <th className="text-left p-3">Number</th>
               <th className="text-left p-3">Date</th>
               <th className="text-left p-3">Type</th>
-              <th className="text-left p-3">Status</th>
+              <th className="text-left p-3">Direction</th>
               <th className="text-right p-3">TTC</th>
               <th className="text-right p-3">Actions</th>
             </tr>
@@ -133,7 +122,7 @@ export default function AllInvoicesPage() {
                   </td>
                   <td className="p-3">{inv.date}</td>
                   <td className="p-3"><Badge variant="outline">{inv.type}</Badge></td>
-                  <td className="p-3"><Badge variant={statusVariant(inv.status)}>{inv.status}</Badge></td>
+                  <td className="p-3"><Badge variant={inv.direction === "in" ? "default" : "destructive"}>{inv.direction === "in" ? "In" : "Out"}</Badge></td>
                   <td className="p-3 text-right">{formatTND(totals.ttc || 0)}</td>
                   <td className="p-3 text-right">
                     <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>View</Button>

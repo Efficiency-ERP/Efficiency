@@ -7,14 +7,13 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createIssue, generateIssueNumber } from "@/lib/supabase/invoices"
+import { createIssue, getNextDocumentNumber } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
-import type { Json } from "@/types/database"
 
 export default function CreateIssuePage() {
   const router = useRouter()
@@ -25,7 +24,6 @@ export default function CreateIssuePage() {
   const logAction = useActionLog("issues")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
-  const [issueNumber] = useState(generateIssueNumber())
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number }>>([])
   const [loading, setLoading] = useState(false)
@@ -46,7 +44,7 @@ export default function CreateIssuePage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      const issue = await createIssue({ number: issueNumber, date, organization_id: organizationId, counterparty_id: counterpartyId, status: "draft", references: {} as Json }, lines)
+      const issue = await createIssue({ number: await getNextDocumentNumber(organizationId, "BS"), date, organization_id: organizationId, counterparty_id: counterpartyId, status: "draft" }, lines)
       await logAction(`Created issue ${issue.number}`, issue.id, organizationId)
       router.push("/dashboard/issues")
     } catch { alert("Failed to create issue") } finally { setLoading(false) }
@@ -90,7 +88,7 @@ export default function CreateIssuePage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>Number</Label><Input value={issueNumber} readOnly /></div>
+              <div className="grid gap-2"><Label>Number</Label><Input value="Auto-generated on save" readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             </div>
           </CardContent>

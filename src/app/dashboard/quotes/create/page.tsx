@@ -1,52 +1,38 @@
 "use client"
 
-import { use, useState, useEffect, Fragment } from "react"
+import { useState, Fragment } from "react"
 import { useRouter } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices } from "@/lib/supabase/invoices"
+import { createQuote, getNextDocumentNumber, computeInvoiceTotals } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
-import { PAYMENT_METHODS, castJson } from "@/lib/utils"
+import { castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
-import type { Json, PaymentMethod, TaxCharge, InvoiceDirection, Invoice } from "@/types/database"
+import type { Json, TaxCharge } from "@/types/database"
 
-export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
-  const { type } = use(params)
+export default function CreateQuotePage() {
   const router = useRouter()
   const { selectedOrgId } = usePMESelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
   const { isContactMyPme, isArticleMyPme } = useMyPme()
-  const logAction = useActionLog("invoices")
-
-  const invoiceType = type as "standard" | "credit" | "debit"
-  const isAdjustment = invoiceType === "credit" || invoiceType === "debit"
-  const flow: "sale" | "purchase" = "sale"
+  const logAction = useActionLog("quotes")
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [dueDate, setDueDate] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("")
-  const [direction, setDirection] = useState<InvoiceDirection>(defaultDirectionFor(flow, invoiceType))
-  const [originalInvoiceId, setOriginalInvoiceId] = useState("")
-  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [notes, setNotes] = useState("")
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (isAdjustment) getInvoices().then(setInvoices).catch(console.error)
-  }, [isAdjustment])
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
@@ -55,16 +41,15 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       code: article.code,
       designation: article.designation,
       unit: article.unit,
-      quantity: invoiceType === "credit" ? -1 : 1,
+      quantity: 1,
       unit_price_puht: article.unit_price_puht,
-      transfer_price: article.transfer_price,
       tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),
       article_id: article.id,
     }])
   }
 
   const addFreeformLine = () => {
-    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null }])
+    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, tax_charges: defaultTaxCharges(), article_id: null }])
   }
 
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => {
@@ -80,11 +65,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
     if (!organizationId) { alert("Select a PME"); return }
     if (!counterpartyId) { alert("Select a counterparty"); return }
     if (lines.length === 0) { alert("Add at least one line"); return }
-    if (isAdjustment && !originalInvoiceId) { alert("Select the original invoice"); return }
 
     setLoading(true)
     try {
-      const invoiceLines = lines.map((l) => ({
+      const quoteLines = lines.map((l) => ({
         article_id: l.article_id,
         code: l.code,
         designation: l.designation,
@@ -93,48 +77,37 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         unit_price_puht: l.unit_price_puht,
         remise_percent: 0,
         tax_charges: l.tax_charges as unknown as Json,
-        transfer_price: l.transfer_price,
       }))
 
-      const invoice = await createInvoice(
+      const quote = await createQuote(
         {
-          number: await getNextDocumentNumber(organizationId, "I"),
+          number: await getNextDocumentNumber(organizationId, "Q"),
           date,
-          due_date: dueDate || null,
           organization_id: organizationId,
-          counterparty_kind: "contact",
           counterparty_id: counterpartyId,
-          type: invoiceType,
-          direction,
-          payment_method: paymentMethod || null,
-          source_quote_id: null,
-          original_invoice_id: isAdjustment ? (originalInvoiceId || null) : null,
+          status: "draft",
           notes: notes || null,
         },
-        invoiceLines,
-        [] // TODO: auto-generate consignments
+        quoteLines
       )
-      await logAction(`Created ${invoiceType} invoice ${invoice.number}`, invoice.id, organizationId)
-      router.push("/dashboard/invoices")
+      await logAction(`Created quote ${quote.number}`, quote.id, organizationId)
+      router.push(`/dashboard/quotes/${quote.id}`)
     } catch (err) {
       console.error(err)
-      alert("Failed to create invoice")
+      alert("Failed to create quote")
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredContacts = sortMyPmeFirst(
-    contacts.filter((c) => (invoiceType === "standard" ? c.party_type !== "supplier" : true)),
-    isContactMyPme
-  )
+  const filteredContacts = sortMyPmeFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyPme)
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
 
   const totals = computeInvoiceTotals(lines)
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Create {type} Invoice</h1>
+      <h1 className="text-2xl font-bold">Create Quote (Devis)</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -166,50 +139,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Button type="button" variant="outline" onClick={() => router.push("/dashboard/contacts/add")}>+ New Contact</Button>
-              </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>Number</Label><Input value="Auto-generated on save" readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-              <div className="grid gap-2"><Label>Due Date</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label>Mode de paiement</Label>
-                <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-                  <SelectTrigger><SelectValue placeholder="Select mode de paiement" /></SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_METHODS.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Direction *</Label>
-                <Select value={direction} onValueChange={(v) => setDirection(v as InvoiceDirection)}>
-                  <SelectTrigger><SelectValue placeholder="Select direction" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="in">Money in</SelectItem>
-                    <SelectItem value="out">Money out</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {isAdjustment && (
-                <div className="grid gap-2">
-                  <Label>Original invoice *</Label>
-                  <Select value={originalInvoiceId} onValueChange={setOriginalInvoiceId}>
-                    <SelectTrigger><SelectValue placeholder="Select invoice being adjusted" /></SelectTrigger>
-                    <SelectContent>
-                      {invoices.map((inv) => (
-                        <SelectItem key={inv.id} value={inv.id}>{inv.number}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -296,7 +229,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         </div>
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Invoice"}</Button>
+          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Quote"}</Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
         </div>
       </form>

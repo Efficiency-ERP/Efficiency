@@ -63,7 +63,6 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-muted-foreground">{invoice.date}</p>
         </div>
         <div className="flex gap-2">
-          {invoice.status === "draft" && <Button variant="outline" onClick={() => router.push(`/dashboard/invoices/${id}/edit`)}>Edit</Button>}
           <Button variant="outline" onClick={() => window.print()}>Download PDF</Button>
         </div>
       </div>
@@ -73,7 +72,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Emetteur:</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{invoice.type}</Badge></div>
-          <div><span className="text-muted-foreground">Status:</span> <Badge>{invoice.status}</Badge></div>
+          <div><span className="text-muted-foreground">Direction:</span> <Badge variant={invoice.direction === "in" ? "default" : "destructive"}>{invoice.direction === "in" ? "In" : "Out"}</Badge></div>
           <div><span className="text-muted-foreground">Due Date:</span> {invoice.due_date || "N/A"}</div>
           <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(invoice.payment_method)}</div>
         </CardContent>

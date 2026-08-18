@@ -17,6 +17,11 @@ import type { Stock, InvoiceTotals, Invoice, Order, Delivery, Issue } from "@/ty
 
 type Range = "7" | "30" | "90" | "ytd"
 
+function signedTtc(inv: Invoice): number {
+  const ttc = castJson<InvoiceTotals>(inv.totals).ttc || 0
+  return inv.direction === "out" ? -ttc : ttc
+}
+
 function getRangeStartDate(range: Range): Date {
   const now = new Date()
   if (range === "ytd") return new Date(now.getFullYear(), 0, 1)
@@ -76,47 +81,38 @@ export default function DashboardHome() {
   const revenueMTD = useMemo(() => {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
-      .filter((inv) => new Date(inv.date) >= mtdStart && inv.status !== "cancelled")
-      .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
+      .filter((inv) => new Date(inv.date) >= mtdStart)
+      .reduce((s, inv) => s + signedTtc(inv), 0)
   }, [filteredInvoices, now])
 
   const revenueToday = useMemo(() =>
     filteredInvoices
-      .filter((inv) => inv.date === todayStr && inv.status !== "cancelled")
-      .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0),
+      .filter((inv) => inv.date === todayStr)
+      .reduce((s, inv) => s + signedTtc(inv), 0),
     [filteredInvoices, todayStr]
   )
 
   const revenueYTD = useMemo(() => {
     const ytdStart = new Date(now.getFullYear(), 0, 1)
     return allInvoices
-      .filter((inv) => new Date(inv.date) >= ytdStart && inv.status !== "cancelled")
-      .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
+      .filter((inv) => new Date(inv.date) >= ytdStart)
+      .reduce((s, inv) => s + signedTtc(inv), 0)
   }, [allInvoices, now])
 
-  const receivablesOutstanding = useMemo(() =>
-    filteredInvoices
-      .filter((inv) => inv.status === "sent")
-      .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0),
-    [filteredInvoices]
-  )
-
-  const draftCount = filteredInvoices.filter((i) => i.status === "draft").length
-  const sentCount = filteredInvoices.filter((i) => i.status === "sent").length
-  const paidCount = filteredInvoices.filter((i) => i.status === "paid").length
-  const cancelledCount = filteredInvoices.filter((i) => i.status === "cancelled").length
-
-  const cashCollectedMTD = useMemo(() => {
+  const moneyOutMTD = useMemo(() => {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    return allInvoices
-      .filter((inv) => new Date(inv.date) >= mtdStart && inv.status === "paid")
+    return filteredInvoices
+      .filter((inv) => new Date(inv.date) >= mtdStart && inv.direction === "out")
       .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
-  }, [allInvoices, now])
+  }, [filteredInvoices, now])
+
+  const inCount = filteredInvoices.filter((i) => i.direction === "in").length
+  const outCount = filteredInvoices.filter((i) => i.direction === "out").length
 
   const taxesMTD = useMemo(() => {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
-      .filter((inv) => new Date(inv.date) >= mtdStart && inv.status !== "cancelled")
+      .filter((inv) => new Date(inv.date) >= mtdStart)
       .reduce((s, inv) => s + Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
   }, [filteredInvoices, now])
 
@@ -129,9 +125,9 @@ export default function DashboardHome() {
       const value = allInvoices
         .filter((inv) => {
           const d = new Date(inv.date)
-          return d >= monthStart && d <= monthEnd && inv.status !== "cancelled"
+          return d >= monthStart && d <= monthEnd
         })
-        .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
+        .reduce((s, inv) => s + signedTtc(inv), 0)
       return { label, value }
     })
   }, [allInvoices, now])
@@ -197,10 +193,10 @@ export default function DashboardHome() {
         </Card>
         <Card className="shadow-none border border-border/40 md:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Receivables</CardTitle>
+            <CardTitle className="text-sm">Money Out (MTD)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{formatTND(receivablesOutstanding)}</div>
+            <div className="text-2xl font-semibold text-red-600">{formatTND(moneyOutMTD)}</div>
           </CardContent>
         </Card>
         <Card className="shadow-none border border-border/40 md:col-span-2">
@@ -240,27 +236,19 @@ export default function DashboardHome() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="shadow-none border border-border/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Invoices</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm">
-              Draft: {draftCount} · Sent: {sentCount} · Paid: {paidCount} · Cancelled: {cancelledCount}
+              In: {inCount} · Out: {outCount}
             </div>
             <Separator className="my-2" />
-            <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/invoices?status=sent")}>
-              Open Invoices
+            <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/invoices")}>
+              All Invoices
             </Button>
-          </CardContent>
-        </Card>
-        <Card className="shadow-none border border-border/40">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Cash Collected (MTD)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatTND(cashCollectedMTD)}</div>
           </CardContent>
         </Card>
         <Card className="shadow-none border border-border/40">
@@ -330,7 +318,7 @@ export default function DashboardHome() {
             <CardDescription>Create documents</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => router.push("/dashboard/invoices/create/standard")}>Create Invoice</Button>
+            <Button size="sm" onClick={() => router.push("/dashboard/quotes/create")}>Create Quote</Button>
             <Button size="sm" variant="secondary" onClick={() => router.push("/dashboard/invoices/create/credit")}>Create Credit</Button>
             <Button size="sm" variant="secondary" onClick={() => router.push("/dashboard/invoices/create/debit")}>Create Debit</Button>
             <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/deliveries/create")}>Create Delivery</Button>
