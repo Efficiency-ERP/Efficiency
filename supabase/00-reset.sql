@@ -25,6 +25,7 @@ drop table if exists issue_lines cascade;
 drop table if exists issues cascade;
 drop table if exists stock_movements cascade;
 drop table if exists document_counters cascade;
+drop table if exists document_attachments cascade;
 
 drop function if exists next_document_number(uuid, text);
 drop function if exists forbid_invoice_mutation();

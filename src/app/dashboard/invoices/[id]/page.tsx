@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
+import { DocumentAttachments } from "@/components/document-attachments"
 import { getInvoice, getInvoiceLines, getConsignments } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge } from "@/types/database"
 
@@ -133,6 +134,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
         </CardContent>
       </Card>
+
+      <DocumentAttachments documentType="invoice" documentId={invoice.id} organizationId={invoice.organization_id} />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getOrder, getOrderLines, getNextDocumentNumber, defaultDirectionFor, createInvoice, attachInvoiceToOrder } from "@/lib/supabase/invoices"
 import { defaultTaxCharges } from "@/components/tax-charges-editor"
+import { DocumentAttachments } from "@/components/document-attachments"
 import type { Json, Order, OrderLine } from "@/types/database"
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -154,6 +155,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </table>
         </CardContent>
       </Card>
+
+      <DocumentAttachments documentType="order" documentId={order.id} organizationId={order.organization_id} />
     </div>
   )
 }
