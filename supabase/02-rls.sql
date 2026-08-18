@@ -8,6 +8,8 @@
 alter table if exists organizations enable row level security;
 alter table if exists contacts enable row level security;
 alter table if exists articles enable row level security;
+alter table if exists quotes enable row level security;
+alter table if exists quote_lines enable row level security;
 alter table if exists invoices enable row level security;
 alter table if exists invoice_lines enable row level security;
 alter table if exists consignment_lines enable row level security;
@@ -21,6 +23,9 @@ alter table if exists issue_lines enable row level security;
 alter table if exists profiles enable row level security;
 alter table if exists logs enable row level security;
 alter table if exists user_organizations enable row level security;
+-- document_counters: no policies below on purpose — only the
+-- security-definer next_document_number() function touches it.
+alter table if exists document_counters enable row level security;
 
 -- ============================================
 -- HELPER: Get user's organization IDs (multi-org)
@@ -54,7 +59,16 @@ drop policy if exists "Users can view articles" on articles;
 drop policy if exists "Users can create articles" on articles;
 drop policy if exists "Users can update articles" on articles;
 
--- invoices
+-- quotes
+drop policy if exists "Users can view quotes" on quotes;
+drop policy if exists "Users can create quotes" on quotes;
+drop policy if exists "Users can update quotes" on quotes;
+
+-- quote_lines
+drop policy if exists "Users can view quote lines" on quote_lines;
+drop policy if exists "Users can manage quote lines" on quote_lines;
+
+-- invoices (no update policy — the immutability trigger blocks updates outright)
 drop policy if exists "Users can view invoices" on invoices;
 drop policy if exists "Users can create invoices" on invoices;
 drop policy if exists "Users can update invoices" on invoices;
@@ -172,7 +186,34 @@ create policy "Users can update articles"
   to authenticated
   using (true);
 
--- INVOICES
+-- QUOTES
+create policy "Users can view quotes"
+  on quotes for select
+  to authenticated
+  using (organization_id in (select public.user_organization_ids()));
+
+create policy "Users can create quotes"
+  on quotes for insert
+  to authenticated
+  with check (true);
+
+create policy "Users can update quotes"
+  on quotes for update
+  to authenticated
+  using (true);
+
+-- QUOTE LINES
+create policy "Users can view quote lines"
+  on quote_lines for select
+  to authenticated
+  using (true);
+
+create policy "Users can manage quote lines"
+  on quote_lines for all
+  to authenticated
+  using (true);
+
+-- INVOICES (no update policy — immutability trigger blocks UPDATE/DELETE)
 create policy "Users can view invoices"
   on invoices for select
   to authenticated
@@ -182,11 +223,6 @@ create policy "Users can create invoices"
   on invoices for insert
   to authenticated
   with check (true);
-
-create policy "Users can update invoices"
-  on invoices for update
-  to authenticated
-  using (true);
 
 -- INVOICE LINES
 create policy "Users can view invoice lines"
