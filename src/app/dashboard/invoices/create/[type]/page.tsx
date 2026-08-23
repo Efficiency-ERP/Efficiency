@@ -1,13 +1,13 @@
 "use client"
 
 import { use, useState, useEffect, Fragment } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices, getOrder, getOrderLines, getQuote, getQuoteLines, attachInvoiceToOrder, markQuoteAccepted } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import type { Json, PaymentMethod, TaxCharge, InvoiceDirection, Invoice } from "
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { selectedOrgId } = usePMESelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
@@ -29,7 +30,9 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
   const invoiceType = type as "standard" | "credit" | "debit"
   const isAdjustment = invoiceType === "credit" || invoiceType === "debit"
-  const flow: "sale" | "purchase" = "sale"
+  const sourceOrderId = searchParams.get("sourceOrderId")
+  const sourceQuoteId = searchParams.get("sourceQuoteId")
+  const flow: "sale" | "purchase" = sourceOrderId ? "purchase" : "sale"
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
@@ -43,10 +46,63 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [prefilling, setPrefilling] = useState(Boolean(sourceOrderId || sourceQuoteId))
+  const [sourceLabel, setSourceLabel] = useState<string | null>(null)
 
   useEffect(() => {
     if (isAdjustment) getInvoices().then(setInvoices).catch(console.error)
   }, [isAdjustment])
+
+  useEffect(() => {
+    async function prefillFromSource() {
+      try {
+        if (sourceOrderId) {
+          const order = await getOrder(sourceOrderId)
+          if (!order) return
+          const orderLines = await getOrderLines(sourceOrderId)
+          setOrganizationId(order.organization_id)
+          setCounterpartyId(order.counterparty_id)
+          setLines(orderLines.map((l) => ({
+            code: l.code,
+            designation: l.designation,
+            unit: l.unit,
+            quantity: l.quantity,
+            unit_price_puht: l.unit_price ?? 0,
+            transfer_price: 0,
+            tax_charges: defaultTaxCharges(),
+            article_id: null,
+          })))
+          setDirection(defaultDirectionFor("purchase", "standard"))
+          setSourceLabel(`order ${order.number}`)
+        } else if (sourceQuoteId) {
+          const quote = await getQuote(sourceQuoteId)
+          if (!quote) return
+          const quoteLines = await getQuoteLines(sourceQuoteId)
+          setOrganizationId(quote.organization_id)
+          setCounterpartyId(quote.counterparty_id)
+          setNotes(quote.notes || "")
+          setLines(quoteLines.map((l) => ({
+            code: l.code,
+            designation: l.designation,
+            unit: l.unit,
+            quantity: l.quantity,
+            unit_price_puht: l.unit_price_puht,
+            transfer_price: 0,
+            tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
+            article_id: l.article_id,
+          })))
+          setDirection(defaultDirectionFor("sale", "standard"))
+          setSourceLabel(`quote ${quote.number}`)
+        }
+      } catch (err) {
+        console.error(err)
+        alert("Failed to load source document")
+      } finally {
+        setPrefilling(false)
+      }
+    }
+    if (sourceOrderId || sourceQuoteId) prefillFromSource()
+  }, [sourceOrderId, sourceQuoteId])
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
@@ -107,15 +163,17 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           type: invoiceType,
           direction,
           payment_method: paymentMethod || null,
-          source_quote_id: null,
+          source_quote_id: sourceQuoteId || null,
           original_invoice_id: isAdjustment ? (originalInvoiceId || null) : null,
           notes: notes || null,
         },
         invoiceLines,
         [] // TODO: auto-generate consignments
       )
+      if (sourceOrderId) await attachInvoiceToOrder(sourceOrderId, invoice.id)
+      if (sourceQuoteId) await markQuoteAccepted(sourceQuoteId)
       await logAction(`Created ${invoiceType} invoice ${invoice.number}`, invoice.id, organizationId)
-      router.push("/dashboard/invoices")
+      router.push(`/dashboard/invoices/${invoice.id}`)
     } catch (err) {
       console.error(err)
       alert("Failed to create invoice")
@@ -125,16 +183,18 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   }
 
   const filteredContacts = sortMyPmeFirst(
-    contacts.filter((c) => (invoiceType === "standard" ? c.party_type !== "supplier" : true)),
+    contacts.filter((c) => (invoiceType === "standard" && !sourceOrderId ? c.party_type !== "supplier" : true)),
     isContactMyPme
   )
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
 
   const totals = computeInvoiceTotals(lines)
 
+  if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
+
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Create {type} Invoice</h1>
+      <h1 className="text-2xl font-bold">{sourceLabel ? `Confirm Invoice — from ${sourceLabel}` : `Create ${type} Invoice`}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

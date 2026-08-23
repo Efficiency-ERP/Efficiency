@@ -72,38 +72,14 @@ export async function createQuote(
   return q
 }
 
-// Validates a quote: creates the resulting (immutable) invoice from the
-// quote's lines, then marks the quote accepted. Quotes stay mutable, so this
-// is the only place a quote's status changes.
-export async function validateQuote(quoteId: string): Promise<Invoice> {
-  const quote = await getQuote(quoteId)
-  if (!quote) throw new Error("Quote not found")
-  const lines = await getQuoteLines(quoteId)
-
-  const invoice = await createInvoice(
-    {
-      number: await getNextDocumentNumber(quote.organization_id, "I"),
-      date: new Date().toISOString().slice(0, 10),
-      due_date: null,
-      organization_id: quote.organization_id,
-      counterparty_kind: "contact",
-      counterparty_id: quote.counterparty_id,
-      type: "standard",
-      direction: defaultDirectionFor("sale", "standard"),
-      payment_method: null,
-      source_quote_id: quote.id,
-      original_invoice_id: null,
-      notes: quote.notes,
-    },
-    lines.map(({ id: _id, quote_id: _quoteId, ...l }) => l),
-    []
-  )
-
+// Marks a quote accepted once its resulting invoice has actually been saved
+// (see the invoice create form's sourceQuoteId prefill flow) — quotes stay
+// mutable, so this is the only place a quote's status changes.
+export async function markQuoteAccepted(quoteId: string): Promise<Quote> {
   const supabase = createClient()
-  const { error } = await supabase.from("quotes").update({ status: "accepted" }).eq("id", quoteId)
+  const { data, error } = await supabase.from("quotes").update({ status: "accepted" }).eq("id", quoteId).select().single()
   if (error) throw error
-
-  return invoice
+  return data
 }
 
 // ============================================

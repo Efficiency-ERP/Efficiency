@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
-import { getQuote, getQuoteLines, validateQuote } from "@/lib/supabase/invoices"
+import { getQuote, getQuoteLines } from "@/lib/supabase/invoices"
 import type { Quote, QuoteLine, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +18,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const [quote, setQuote] = useState<Quote | null>(null)
   const [lines, setLines] = useState<QuoteLine[]>([])
   const [loading, setLoading] = useState(true)
-  const [validating, setValidating] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -34,20 +33,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     }
     load()
   }, [id])
-
-  const handleValidate = async () => {
-    if (!quote) return
-    setValidating(true)
-    try {
-      const invoice = await validateQuote(quote.id)
-      router.push(`/dashboard/invoices/${invoice.id}`)
-    } catch (err) {
-      console.error(err)
-      alert("Failed to validate quote")
-    } finally {
-      setValidating(false)
-    }
-  }
 
   const counterparty = quote ? contacts.find((c) => c.id === quote.counterparty_id) : null
 
@@ -71,8 +56,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         </div>
         <div className="flex gap-2">
           {quote.status !== "accepted" && (
-            <Button onClick={handleValidate} disabled={validating}>
-              {validating ? "Validating..." : "Validate → Create Invoice"}
+            <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceQuoteId=${quote.id}`)}>
+              Validate → Create Invoice
             </Button>
           )}
           <Button variant="outline" onClick={() => router.back()}>Back</Button>

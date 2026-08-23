@@ -6,10 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { getOrder, getOrderLines, getNextDocumentNumber, defaultDirectionFor, createInvoice, attachInvoiceToOrder } from "@/lib/supabase/invoices"
-import { defaultTaxCharges } from "@/components/tax-charges-editor"
+import { getOrder, getOrderLines } from "@/lib/supabase/invoices"
 import { DocumentAttachments } from "@/components/document-attachments"
-import type { Json, Order, OrderLine } from "@/types/database"
+import type { Order, OrderLine } from "@/types/database"
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -18,7 +17,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [order, setOrder] = useState<Order | null>(null)
   const [lines, setLines] = useState<OrderLine[]>([])
   const [loading, setLoading] = useState(true)
-  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -40,48 +38,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const counterparty = order ? contacts.find((c) => c.id === order.counterparty_id) : null
 
-  const confirmWithInvoice = async () => {
-    if (!order) return
-    setConfirming(true)
-    try {
-      const invoiceLines = lines.map((l) => ({
-        article_id: null,
-        code: l.code,
-        designation: l.designation,
-        unit: l.unit,
-        quantity: l.quantity,
-        unit_price_puht: l.unit_price ?? 0,
-        remise_percent: 0,
-        tax_charges: defaultTaxCharges() as unknown as Json,
-      }))
-      const invoice = await createInvoice(
-        {
-          number: await getNextDocumentNumber(order.organization_id, "I"),
-          date: new Date().toISOString().slice(0, 10),
-          due_date: null,
-          organization_id: order.organization_id,
-          counterparty_kind: "contact",
-          counterparty_id: order.counterparty_id,
-          type: "standard",
-          direction: defaultDirectionFor("purchase", "standard"),
-          payment_method: null,
-          source_quote_id: null,
-          original_invoice_id: null,
-          notes: null,
-        },
-        invoiceLines,
-        []
-      )
-      const updated = await attachInvoiceToOrder(order.id, invoice.id)
-      setOrder(updated)
-    } catch (err) {
-      console.error(err)
-      alert("Failed to confirm order")
-    } finally {
-      setConfirming(false)
-    }
-  }
-
   if (loading) return <div className="text-muted-foreground">Loading...</div>
 
   if (!order) return (
@@ -100,8 +56,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
         <div className="flex gap-2">
           {!order.source_invoice_id && (
-            <Button onClick={confirmWithInvoice} disabled={confirming}>
-              {confirming ? "Confirming..." : "Confirm (attach invoice)"}
+            <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceOrderId=${order.id}`)}>
+              Confirm Invoice
             </Button>
           )}
           <Button variant="outline" onClick={() => router.back()}>Back</Button>
