@@ -234,7 +234,9 @@ export interface Database {
           direction: InvoiceDirection
           payment_method: PaymentMethod | null
           totals: Json
+          source_order_id: string | null
           source_quote_id: string | null
+          source_delivery_id: string | null
           original_invoice_id: string | null
           notes: string | null
           created_at: string
@@ -251,7 +253,9 @@ export interface Database {
           direction: InvoiceDirection
           payment_method?: PaymentMethod | null
           totals?: Json
+          source_order_id?: string | null
           source_quote_id?: string | null
+          source_delivery_id?: string | null
           original_invoice_id?: string | null
           notes?: string | null
           created_at?: string
@@ -268,7 +272,9 @@ export interface Database {
           direction?: InvoiceDirection
           payment_method?: PaymentMethod | null
           totals?: Json
+          source_order_id?: string | null
           source_quote_id?: string | null
+          source_delivery_id?: string | null
           original_invoice_id?: string | null
           notes?: string | null
         }
@@ -418,7 +424,6 @@ export interface Database {
           counterparty_id: string
           type: OrderType
           status: DocumentStatus
-          source_invoice_id: string | null
           created_at: string
         }
         Insert: {
@@ -429,7 +434,6 @@ export interface Database {
           counterparty_id: string
           type: OrderType
           status?: DocumentStatus
-          source_invoice_id?: string | null
           created_at?: string
         }
         Update: {
@@ -440,7 +444,6 @@ export interface Database {
           counterparty_id?: string
           type?: OrderType
           status?: DocumentStatus
-          source_invoice_id?: string | null
         }
       }
       order_lines: {

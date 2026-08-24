@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
-import { getQuote, getQuoteLines } from "@/lib/supabase/invoices"
-import type { Quote, QuoteLine, InvoiceTotals, TaxCharge } from "@/types/database"
+import { getQuote, getQuoteLines, getInvoiceBySourceQuote } from "@/lib/supabase/invoices"
+import type { Invoice, Quote, QuoteLine, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -17,6 +17,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const { contacts } = useContactsStore()
   const [quote, setQuote] = useState<Quote | null>(null)
   const [lines, setLines] = useState<QuoteLine[]>([])
+  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -24,7 +25,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       try {
         const q = await getQuote(id)
         setQuote(q)
-        if (q) setLines(await getQuoteLines(q.id))
+        if (q) {
+          const [lns, inv] = await Promise.all([getQuoteLines(q.id), getInvoiceBySourceQuote(q.id)])
+          setLines(lns)
+          setLinkedInvoice(inv)
+        }
       } catch (err) {
         console.error(err)
       } finally {
@@ -55,7 +60,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-muted-foreground">{quote.date}</p>
         </div>
         <div className="flex gap-2">
-          {quote.status !== "accepted" && (
+          {!linkedInvoice && (
             <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceQuoteId=${quote.id}`)}>
               Validate → Create Invoice
             </Button>
@@ -69,6 +74,14 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Status:</span> <Badge>{quote.status}</Badge></div>
+          {linkedInvoice && (
+            <div>
+              <span className="text-muted-foreground">Invoice:</span>{" "}
+              <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${linkedInvoice.id}`)}>
+                View invoice
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

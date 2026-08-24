@@ -126,6 +126,13 @@ create table if not exists quote_lines (
 -- edited. direction records whether this invoice is money in or out; it
 -- defaults from the flow that created it (sale vs purchase) but can be
 -- overridden per-invoice for edge cases (interco, refunds).
+--
+-- Every invoice that was confirmed from an upstream document carries a
+-- backward FK to it (source_order_id / source_quote_id / source_delivery_id)
+-- — never the reverse. This is the one rule for "was X converted downstream":
+-- always a nullable FK on the later document, never a forward pointer stored
+-- on the earlier one (which would wrongly cap it at a single invoice) and
+-- never a bolted-on status flag standing in for the link.
 create table if not exists invoices (
   id uuid primary key default uuid_generate_v4(),
   number text not null,
@@ -209,9 +216,12 @@ create table if not exists stock_movements (
   created_at timestamptz default now()
 );
 
--- Supplier Order (BC). Confirmed by attaching an invoice (source_invoice_id),
--- either generated internally or logged from the supplier's own invoice —
--- always negative on financials (an "out" invoice), positive on stock.
+-- Supplier Order (BC). Confirmed by an invoice that references it back
+-- (invoices.source_order_id — see the invoices table above); the order
+-- itself carries no forward pointer, since "was this order invoiced" is
+-- always a lookup, not a stored flag (keeps the same rule as Quote/Delivery
+-- and correctly allows more than one invoice per order later, e.g. partial
+-- invoicing or corrections).
 create table if not exists orders (
   id uuid primary key default uuid_generate_v4(),
   number text not null,
@@ -220,10 +230,14 @@ create table if not exists orders (
   counterparty_id uuid not null references contacts(id) on delete restrict,
   type order_type not null default 'supplier',
   status document_status not null default 'draft',
-  source_invoice_id uuid references invoices(id) on delete set null,
   created_at timestamptz default now(),
   unique (organization_id, number)
 );
+
+-- Added here (after orders/deliveries exist) rather than inline on the
+-- invoices table above, purely for create-order-within-this-file reasons.
+alter table invoices add column if not exists source_order_id uuid references orders(id) on delete set null;
+alter table invoices add column if not exists source_delivery_id uuid references deliveries(id) on delete set null;
 
 create table if not exists order_lines (
   id uuid primary key default uuid_generate_v4(),
@@ -310,6 +324,8 @@ create index if not exists idx_invoices_organization on invoices(organization_id
 create index if not exists idx_invoices_counterparty on invoices(counterparty_id);
 create index if not exists idx_invoices_date on invoices(date);
 create index if not exists idx_invoices_source_quote on invoices(source_quote_id);
+create index if not exists idx_invoices_source_order on invoices(source_order_id);
+create index if not exists idx_invoices_source_delivery on invoices(source_delivery_id);
 create index if not exists idx_invoices_original_invoice on invoices(original_invoice_id);
 create index if not exists idx_invoice_lines_invoice on invoice_lines(invoice_id);
 create index if not exists idx_deliveries_number on deliveries(number);

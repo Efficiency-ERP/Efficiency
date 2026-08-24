@@ -72,6 +72,17 @@ export async function createQuote(
   return q
 }
 
+// Whether a quote has been invoiced is always a derived lookup (does any
+// invoice reference it via source_quote_id) — never gated on quotes.status,
+// which is reserved for genuine human-decision states (draft/sent/rejected)
+// and is not itself the link.
+export async function getInvoiceBySourceQuote(quoteId: string): Promise<Invoice | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("invoices").select("*").eq("source_quote_id", quoteId).maybeSingle()
+  if (error) throw error
+  return data
+}
+
 // Marks a quote accepted once its resulting invoice has actually been saved
 // (see the invoice create form's sourceQuoteId prefill flow) — quotes stay
 // mutable, so this is the only place a quote's status changes.
@@ -312,18 +323,23 @@ export async function createOrder(
   return ord
 }
 
-// Attaches an invoice to a supplier order and marks it confirmed — either
-// path from the Purchase flow (internally generated or logged from the
-// supplier's own invoice) ends here.
-export async function attachInvoiceToOrder(orderId: string, invoiceId: string): Promise<Order> {
+// Whether an order has been invoiced is always a derived lookup (does any
+// invoice reference it via source_order_id), never a stored pointer on the
+// order — same rule as Quote→Invoice/Quote→Delivery, and correctly allows
+// more than one invoice per order later (partial invoicing, corrections).
+export async function getInvoiceBySourceOrder(orderId: string): Promise<Invoice | null> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ source_invoice_id: invoiceId, status: "final" })
-    .eq("id", orderId)
-    .select()
-    .single()
+  const { data, error } = await supabase.from("invoices").select("*").eq("source_order_id", orderId).maybeSingle()
+  if (error) throw error
+  return data
+}
 
+// Marks an order final once its resulting invoice has actually been saved
+// (see the invoice create form's sourceOrderId prefill flow) — a plain
+// status flip, not the link itself (that's invoices.source_order_id).
+export async function markOrderFinal(orderId: string): Promise<Order> {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("orders").update({ status: "final" }).eq("id", orderId).select().single()
   if (error) throw error
   return data
 }

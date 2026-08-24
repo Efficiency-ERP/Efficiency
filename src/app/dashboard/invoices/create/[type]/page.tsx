@@ -7,7 +7,7 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices, getOrder, getOrderLines, getQuote, getQuoteLines, attachInvoiceToOrder, markQuoteAccepted } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -163,14 +163,16 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           type: invoiceType,
           direction,
           payment_method: paymentMethod || null,
+          source_order_id: sourceOrderId || null,
           source_quote_id: sourceQuoteId || null,
+          source_delivery_id: null,
           original_invoice_id: isAdjustment ? (originalInvoiceId || null) : null,
           notes: notes || null,
         },
         invoiceLines,
         [] // TODO: auto-generate consignments
       )
-      if (sourceOrderId) await attachInvoiceToOrder(sourceOrderId, invoice.id)
+      if (sourceOrderId) await markOrderFinal(sourceOrderId)
       if (sourceQuoteId) await markQuoteAccepted(sourceQuoteId)
       await logAction(`Created ${invoiceType} invoice ${invoice.number}`, invoice.id, organizationId)
       router.push(`/dashboard/invoices/${invoice.id}`)
