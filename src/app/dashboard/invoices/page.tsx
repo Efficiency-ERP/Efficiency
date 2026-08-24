@@ -64,7 +64,11 @@ export default function AllInvoicesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoices</h1>
-        <Button onClick={() => router.push("/dashboard/invoices/create")}>Create Invoice</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => router.push("/dashboard/invoices/create")}>Create Invoice</Button>
+          <Button variant="secondary" onClick={() => router.push("/dashboard/invoices/create/credit")}>New Credit Note</Button>
+          <Button variant="secondary" onClick={() => router.push("/dashboard/invoices/create/debit")}>New Debit Note</Button>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{totalCount}</CardContent></Card>

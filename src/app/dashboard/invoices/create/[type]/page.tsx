@@ -35,7 +35,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const flow: "sale" | "purchase" = sourceOrderId ? "purchase" : "sale"
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
-  const [counterpartyId, setCounterpartyId] = useState("")
+  const [counterpartyId, setCounterpartyId] = useState(searchParams.get("selectedContact") || "")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("")
