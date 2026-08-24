@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
-import { getQuote, getQuoteLines, getInvoiceBySourceQuote } from "@/lib/supabase/invoices"
-import type { Invoice, Quote, QuoteLine, InvoiceTotals, TaxCharge } from "@/types/database"
+import { getQuote, getQuoteLines, getInvoiceBySourceQuote, getDeliveriesBySourceQuote } from "@/lib/supabase/invoices"
+import type { Invoice, Quote, QuoteLine, Delivery, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -18,6 +18,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const [quote, setQuote] = useState<Quote | null>(null)
   const [lines, setLines] = useState<QuoteLine[]>([])
   const [linkedInvoice, setLinkedInvoice] = useState<Invoice | null>(null)
+  const [deliveries, setDeliveries] = useState<Delivery[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,9 +27,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         const q = await getQuote(id)
         setQuote(q)
         if (q) {
-          const [lns, inv] = await Promise.all([getQuoteLines(q.id), getInvoiceBySourceQuote(q.id)])
+          const [lns, inv, dels] = await Promise.all([getQuoteLines(q.id), getInvoiceBySourceQuote(q.id), getDeliveriesBySourceQuote(q.id)])
           setLines(lns)
           setLinkedInvoice(inv)
+          setDeliveries(dels)
         }
       } catch (err) {
         console.error(err)
@@ -60,6 +62,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-muted-foreground">{quote.date}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => router.push(`/dashboard/deliveries/create?sourceQuoteId=${quote.id}`)}>
+            Create Delivery
+          </Button>
           {!linkedInvoice && (
             <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceQuoteId=${quote.id}`)}>
               Validate → Create Invoice
@@ -118,6 +123,31 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
         </CardContent>
       </Card>
+
+      {deliveries.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Deliveries</CardTitle></CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b"><th className="text-left p-2">Number</th><th className="text-left p-2">Date</th></tr>
+              </thead>
+              <tbody>
+                {deliveries.map((d) => (
+                  <tr key={d.id} className="border-b">
+                    <td className="p-2">
+                      <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/deliveries/${d.id}`)}>
+                        {d.number}
+                      </button>
+                    </td>
+                    <td className="p-2">{d.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

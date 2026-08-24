@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createDelivery, getNextDocumentNumber } from "@/lib/supabase/invoices"
+import { createDelivery, getNextDocumentNumber, getQuote, getQuoteLines } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -17,16 +17,46 @@ import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-opt
 
 export default function CreateDeliveryPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { selectedOrgId } = usePMESelection()
   const { contacts, organizations } = useContactsStore()
   const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
   const { isContactMyPme, isArticleMyPme } = useMyPme()
   const logAction = useActionLog("deliveries")
+  const sourceQuoteId = searchParams.get("sourceQuoteId")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [lines, setLines] = useState<Array<{ article_id: string | null; code: string; designation: string; unit: string | null; quantity: number }>>([])
   const [loading, setLoading] = useState(false)
+  const [prefilling, setPrefilling] = useState(Boolean(sourceQuoteId))
+  const [sourceLabel, setSourceLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function prefillFromQuote() {
+      try {
+        const quote = await getQuote(sourceQuoteId!)
+        if (!quote) return
+        const quoteLines = await getQuoteLines(sourceQuoteId!)
+        setOrganizationId(quote.organization_id)
+        setCounterpartyId(quote.counterparty_id)
+        setLines(quoteLines.map((l) => ({
+          article_id: l.article_id,
+          code: l.code,
+          designation: l.designation,
+          unit: l.unit,
+          quantity: l.quantity,
+        })))
+        setSourceLabel(`quote ${quote.number}`)
+      } catch (err) {
+        console.error(err)
+        alert("Failed to load quote")
+      } finally {
+        setPrefilling(false)
+      }
+    }
+    if (sourceQuoteId) prefillFromQuote()
+  }, [sourceQuoteId])
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
@@ -45,7 +75,7 @@ export default function CreateDeliveryPage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      const { delivery, updatedArticles } = await createDelivery({ number: await getNextDocumentNumber(organizationId, "D"), date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", source_quote_id: null }, lines)
+      const { delivery, updatedArticles } = await createDelivery({ number: await getNextDocumentNumber(organizationId, "D"), date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", source_quote_id: sourceQuoteId || null }, lines)
       for (const article of updatedArticles) updateArticleInStore(article.id, article)
       await logAction(`Created delivery ${delivery.number}`, delivery.id, organizationId)
       router.push("/dashboard/deliveries")
@@ -54,10 +84,13 @@ export default function CreateDeliveryPage() {
 
   const filteredContacts = sortMyPmeFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyPme)
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const pageTitle = sourceLabel ? `Confirm Delivery — from ${sourceLabel}` : "Create Delivery (BL)"
+
+  if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Create Delivery (BL)</h1>
+      <h1 className="text-2xl font-bold">{pageTitle}</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader><CardTitle>Header</CardTitle></CardHeader>

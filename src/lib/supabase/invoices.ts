@@ -220,6 +220,21 @@ export async function getDeliveries(organizationId?: string): Promise<Delivery[]
   return data || []
 }
 
+// A quote can reasonably produce more than one delivery over time (partial
+// shipments), so this returns all of them via the derived link
+// (deliveries.source_quote_id) rather than a single stored pointer.
+export async function getDeliveriesBySourceQuote(quoteId: string): Promise<Delivery[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("deliveries")
+    .select("*")
+    .eq("source_quote_id", quoteId)
+    .order("date", { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
+
 export async function getDelivery(id: string): Promise<Delivery | null> {
   const supabase = createClient()
   const { data, error } = await supabase
