@@ -58,8 +58,6 @@ export default function AllInvoicesPage() {
         <h1 className="text-2xl font-bold">Invoices</h1>
         <div className="flex gap-2">
           <Button onClick={() => router.push("/dashboard/invoices/create")}>Create Invoice</Button>
-          <Button variant="secondary" onClick={() => router.push("/dashboard/invoices/create/credit")}>New Credit Note</Button>
-          <Button variant="secondary" onClick={() => router.push("/dashboard/invoices/create/debit")}>New Debit Note</Button>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-3">

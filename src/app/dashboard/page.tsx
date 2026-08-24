@@ -319,8 +319,6 @@ export default function DashboardHome() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => router.push("/dashboard/quotes/create")}>Create Quote</Button>
-            <Button size="sm" variant="secondary" onClick={() => router.push("/dashboard/invoices/create/credit")}>Create Credit</Button>
-            <Button size="sm" variant="secondary" onClick={() => router.push("/dashboard/invoices/create/debit")}>Create Debit</Button>
             <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/deliveries/create")}>Create Delivery</Button>
             <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/issues/create")}>Create Issue</Button>
             <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/orders/create?type=supplier")}>Create Supplier Order</Button>

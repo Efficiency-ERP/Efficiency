@@ -7,7 +7,7 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
-import type { Json, PaymentMethod, TaxCharge, InvoiceDirection, Invoice } from "@/types/database"
+import type { Json, PaymentMethod, TaxCharge, InvoiceDirection } from "@/types/database"
 
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
@@ -42,10 +42,9 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [dueDate, setDueDate] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("")
   const [flowChoice, setFlowChoice] = useState<"sale" | "purchase">(flow)
-  const [direction, setDirection] = useState<InvoiceDirection>(defaultDirectionFor(flow, invoiceType))
+  const [direction, setDirection] = useState<InvoiceDirection>(defaultDirectionFor(flow))
   const [manualNumber, setManualNumber] = useState("")
   const [originalInvoiceId, setOriginalInvoiceId] = useState("")
-  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
@@ -53,11 +52,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [prefilling, setPrefilling] = useState(isInferredFlow)
   const [sourceLabel, setSourceLabel] = useState<string | null>(null)
 
-  const isMoneyOut = direction === "out"
-
-  useEffect(() => {
-    if (isAdjustment && !originalInvoiceIdParam) getInvoices().then(setInvoices).catch(console.error)
-  }, [isAdjustment, originalInvoiceIdParam])
+  // A credit/debit note is always our own document, even when correcting a
+  // purchase invoice logged from a supplier — only a standalone money-out
+  // standard invoice needs its number typed in.
+  const isMoneyOut = direction === "out" && !isAdjustment
 
   // Auto-select the issuing organization when there's only one to choose from
   // (the global PME filter already covers the case where one is pre-selected).
@@ -85,7 +83,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
           article_id: l.article_id,
         })))
-        setDirection(invoiceType === "credit" ? (original.direction === "in" ? "out" : "in") : original.direction)
+        setDirection(original.direction)
         setSourceLabel(`invoice ${original.number}`)
       } catch (err) {
         console.error(err)
@@ -116,7 +114,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             tax_charges: defaultTaxCharges(),
             article_id: null,
           })))
-          setDirection(defaultDirectionFor("purchase", "standard"))
+          setDirection(defaultDirectionFor("purchase"))
           setSourceLabel(`order ${order.number}`)
         } else if (sourceQuoteId) {
           const quote = await getQuote(sourceQuoteId)
@@ -135,7 +133,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
             article_id: l.article_id,
           })))
-          setDirection(defaultDirectionFor("sale", "standard"))
+          setDirection(defaultDirectionFor("sale"))
           setSourceLabel(`quote ${quote.number}`)
         }
       } catch (err) {
@@ -317,24 +315,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               {!isInferredFlow && (
                 <div className="grid gap-2">
                   <Label>Sale or Purchase *</Label>
-                  <Select value={flowChoice} onValueChange={(v) => { const f = v as "sale" | "purchase"; setFlowChoice(f); setDirection(defaultDirectionFor(f, invoiceType)) }}>
+                  <Select value={flowChoice} onValueChange={(v) => { const f = v as "sale" | "purchase"; setFlowChoice(f); setDirection(defaultDirectionFor(f)) }}>
                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="sale">Sale</SelectItem>
                       <SelectItem value="purchase">Purchase</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {isAdjustment && !originalInvoiceIdParam && (
-                <div className="grid gap-2">
-                  <Label>Original invoice *</Label>
-                  <Select value={originalInvoiceId} onValueChange={setOriginalInvoiceId}>
-                    <SelectTrigger><SelectValue placeholder="Select invoice being adjusted" /></SelectTrigger>
-                    <SelectContent>
-                      {invoices.map((inv) => (
-                        <SelectItem key={inv.id} value={inv.id}>{inv.number}</SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
                 </div>
