@@ -34,25 +34,37 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const sourceQuoteId = searchParams.get("sourceQuoteId")
   const originalInvoiceIdParam = searchParams.get("originalInvoiceId")
   const flow: "sale" | "purchase" = sourceOrderId ? "purchase" : "sale"
+  const isInferredFlow = Boolean(sourceOrderId || sourceQuoteId || originalInvoiceIdParam)
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState(searchParams.get("selectedContact") || "")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("")
+  const [flowChoice, setFlowChoice] = useState<"sale" | "purchase">(flow)
   const [direction, setDirection] = useState<InvoiceDirection>(defaultDirectionFor(flow, invoiceType))
+  const [manualNumber, setManualNumber] = useState("")
   const [originalInvoiceId, setOriginalInvoiceId] = useState("")
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [prefilling, setPrefilling] = useState(Boolean(sourceOrderId || sourceQuoteId || originalInvoiceIdParam))
+  const [prefilling, setPrefilling] = useState(isInferredFlow)
   const [sourceLabel, setSourceLabel] = useState<string | null>(null)
+
+  const isMoneyOut = direction === "out"
 
   useEffect(() => {
     if (isAdjustment && !originalInvoiceIdParam) getInvoices().then(setInvoices).catch(console.error)
   }, [isAdjustment, originalInvoiceIdParam])
+
+  // Auto-select the issuing organization when there's only one to choose from
+  // (the global PME filter already covers the case where one is pre-selected).
+  useEffect(() => {
+    if (isInferredFlow || organizationId) return
+    if (organizations.length === 1) setOrganizationId(organizations[0].id)
+  }, [organizations, organizationId, isInferredFlow])
 
   useEffect(() => {
     async function prefillFromOriginalInvoice() {
@@ -165,10 +177,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!organizationId) { alert("Select a PME"); return }
+    if (!organizationId) { alert("Select an issuing organization"); return }
     if (!counterpartyId) { alert("Select a counterparty"); return }
     if (lines.length === 0) { alert("Add at least one line"); return }
     if (isAdjustment && !originalInvoiceId) { alert("Select the original invoice"); return }
+    if (isMoneyOut && !manualNumber.trim()) { alert("Enter the supplier's invoice number"); return }
 
     setLoading(true)
     try {
@@ -185,9 +198,12 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       }))
 
       const numberPrefix = invoiceType === "credit" ? "CN" : invoiceType === "debit" ? "DN" : "I"
+      // A money-out invoice records what the supplier issued to us — their
+      // number, not ours to generate.
+      const number = isMoneyOut ? manualNumber.trim() : await getNextDocumentNumber(organizationId, numberPrefix)
       const invoice = await createInvoice(
         {
-          number: await getNextDocumentNumber(organizationId, numberPrefix),
+          number,
           date,
           due_date: dueDate || null,
           organization_id: organizationId,
@@ -218,7 +234,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   }
 
   const filteredContacts = sortMyPmeFirst(
-    contacts.filter((c) => (invoiceType === "standard" && !sourceOrderId ? c.party_type !== "supplier" : true)),
+    contacts.filter((c) =>
+      c.internal_organization_id !== organizationId &&
+      (invoiceType === "standard" && !sourceOrderId ? c.party_type !== "supplier" : true)
+    ),
     isContactMyPme
   )
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
@@ -243,9 +262,9 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>PME *</Label>
+                <Label>Issuing Organization *</Label>
                 <Select value={organizationId} onValueChange={setOrganizationId}>
-                  <SelectTrigger><SelectValue placeholder="Select PME" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select issuing organization" /></SelectTrigger>
                   <SelectContent>
                     {organizations.map((o) => (
                       <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
@@ -272,7 +291,14 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2"><Label>Number</Label><Input value="Auto-generated on save" readOnly /></div>
+              <div className="grid gap-2">
+                <Label>Number{isMoneyOut ? " *" : ""}</Label>
+                {isMoneyOut ? (
+                  <Input value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} placeholder="Supplier's invoice number" />
+                ) : (
+                  <div className="text-sm text-muted-foreground py-2">Auto-generated on save</div>
+                )}
+              </div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
               <div className="grid gap-2"><Label>Due Date</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
             </div>
@@ -288,16 +314,18 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label>Direction *</Label>
-                <Select value={direction} onValueChange={(v) => setDirection(v as InvoiceDirection)}>
-                  <SelectTrigger><SelectValue placeholder="Select direction" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="in">Money in</SelectItem>
-                    <SelectItem value="out">Money out</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isInferredFlow && (
+                <div className="grid gap-2">
+                  <Label>Sale or Purchase *</Label>
+                  <Select value={flowChoice} onValueChange={(v) => { const f = v as "sale" | "purchase"; setFlowChoice(f); setDirection(defaultDirectionFor(f, invoiceType)) }}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sale">Sale</SelectItem>
+                      <SelectItem value="purchase">Purchase</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {isAdjustment && !originalInvoiceIdParam && (
                 <div className="grid gap-2">
                   <Label>Original invoice *</Label>

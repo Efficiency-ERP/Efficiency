@@ -7,25 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { getInvoices } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceTotals } from "@/types/database"
 
 export default function AllInvoicesPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { selectedOrgId } = usePMESelection()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [directionFilter, setDirectionFilter] = useState<string>("all")
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const direction = searchParams.get("direction")
-    if (direction) setDirectionFilter(direction)
-  }, [searchParams])
 
   useEffect(() => {
     async function load() {
@@ -49,10 +42,9 @@ export default function AllInvoicesPage() {
         if (!inv.number.toLowerCase().includes(q)) return false
       }
       if (typeFilter !== "all" && inv.type !== typeFilter) return false
-      if (directionFilter !== "all" && inv.direction !== directionFilter) return false
       return true
     })
-  }, [invoices, search, typeFilter, directionFilter])
+  }, [invoices, search, typeFilter])
 
   const totalCount = invoices.length
   const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
@@ -91,14 +83,6 @@ export default function AllInvoicesPage() {
             <SelectItem value="debit">Debit</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={directionFilter} onValueChange={setDirectionFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Directions</SelectItem>
-            <SelectItem value="in">Money In</SelectItem>
-            <SelectItem value="out">Money Out</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -107,14 +91,13 @@ export default function AllInvoicesPage() {
               <th className="text-left p-3">Number</th>
               <th className="text-left p-3">Date</th>
               <th className="text-left p-3">Type</th>
-              <th className="text-left p-3">Direction</th>
               <th className="text-right p-3">TTC</th>
               <th className="text-right p-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredInvoices.length === 0 ? (
-              <tr><td colSpan={6} className="text-center p-8 text-muted-foreground">No invoices found</td></tr>
+              <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">No invoices found</td></tr>
             ) : filteredInvoices.map((inv) => {
               const totals = castJson<InvoiceTotals>(inv.totals)
               return (
@@ -126,7 +109,6 @@ export default function AllInvoicesPage() {
                   </td>
                   <td className="p-3">{inv.date}</td>
                   <td className="p-3"><Badge variant="outline">{inv.type}</Badge></td>
-                  <td className="p-3"><Badge variant={inv.direction === "in" ? "default" : "destructive"}>{inv.direction === "in" ? "In" : "Out"}</Badge></td>
                   <td className="p-3 text-right">{formatTND(totals.ttc || 0)}</td>
                   <td className="p-3 text-right">
                     <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>View</Button>

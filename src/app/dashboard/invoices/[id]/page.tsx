@@ -15,7 +15,7 @@ import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge } 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { contacts } = useContactsStore()
+  const { contacts, organizations } = useContactsStore()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [lines, setLines] = useState<InvoiceLine[]>([])
   const [consignments, setConsignments] = useState<ConsignmentLine[]>([])
@@ -47,6 +47,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   }, [id])
 
   const counterparty = invoice ? contacts.find((c) => c.id === invoice.counterparty_id) : null
+  const issuingOrg = invoice ? organizations.find((o) => o.id === invoice.organization_id) : null
 
   if (loading) return <div className="text-muted-foreground">Loading...</div>
 
@@ -80,9 +81,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       <Card>
         <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Emetteur:</span> {counterparty?.company_name || "N/A"}</div>
+          <div><span className="text-muted-foreground">Émetteur:</span> {issuingOrg?.name || "N/A"}</div>
+          <div><span className="text-muted-foreground">{invoice.direction === "in" ? "Client" : "Fournisseur"}:</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{invoice.type}</Badge></div>
-          <div><span className="text-muted-foreground">Direction:</span> <Badge variant={invoice.direction === "in" ? "default" : "destructive"}>{invoice.direction === "in" ? "In" : "Out"}</Badge></div>
+          <div><span className="text-muted-foreground">Sale/Purchase:</span> <Badge variant={invoice.direction === "in" ? "default" : "destructive"}>{invoice.direction === "in" ? "Sale" : "Purchase"}</Badge></div>
           <div><span className="text-muted-foreground">Due Date:</span> {invoice.due_date || "N/A"}</div>
           <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(invoice.payment_method)}</div>
         </CardContent>
