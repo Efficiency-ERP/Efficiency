@@ -125,6 +125,21 @@ export async function getInvoice(id: string): Promise<Invoice | null> {
   return data
 }
 
+// Credit/debit notes reference the invoice they correct via
+// original_invoice_id — never the reverse — so an invoice can have more
+// than one correction over time (e.g. partial credits on different lines).
+export async function getCorrectionsForInvoice(invoiceId: string): Promise<Invoice[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("original_invoice_id", invoiceId)
+    .order("created_at", { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
+
 export async function getInvoiceLines(invoiceId: string): Promise<InvoiceLine[]> {
   const supabase = createClient()
   const { data, error } = await supabase

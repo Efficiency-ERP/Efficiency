@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { DocumentAttachments } from "@/components/document-attachments"
-import { getInvoice, getInvoiceLines, getConsignments } from "@/lib/supabase/invoices"
+import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -19,6 +19,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [lines, setLines] = useState<InvoiceLine[]>([])
   const [consignments, setConsignments] = useState<ConsignmentLine[]>([])
+  const [corrections, setCorrections] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -27,12 +28,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         const inv = await getInvoice(id)
         setInvoice(inv)
         if (inv) {
-          const [lns, cons] = await Promise.all([
+          const [lns, cons, corr] = await Promise.all([
             getInvoiceLines(inv.id),
             getConsignments(inv.id),
+            getCorrectionsForInvoice(inv.id),
           ])
           setLines(lns)
           setConsignments(cons)
+          setCorrections(corr)
         }
       } catch (err) {
         console.error(err)
@@ -64,6 +67,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-muted-foreground">{invoice.date}</p>
         </div>
         <div className="flex gap-2">
+          {invoice.type === "standard" && (
+            <>
+              <Button variant="secondary" onClick={() => router.push(`/dashboard/invoices/create/credit?originalInvoiceId=${invoice.id}`)}>Add Credit Note</Button>
+              <Button variant="secondary" onClick={() => router.push(`/dashboard/invoices/create/debit?originalInvoiceId=${invoice.id}`)}>Add Debit Note</Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => window.print()}>Download PDF</Button>
         </div>
       </div>
@@ -134,6 +143,36 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
         </CardContent>
       </Card>
+
+      {corrections.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Corrections</CardTitle></CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b"><th className="text-left p-2">Number</th><th className="text-left p-2">Type</th><th className="text-left p-2">Date</th><th className="text-right p-2">TTC</th></tr>
+              </thead>
+              <tbody>
+                {corrections.map((c) => {
+                  const cTotals = castJson<InvoiceTotals>(c.totals)
+                  return (
+                    <tr key={c.id} className="border-b">
+                      <td className="p-2">
+                        <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${c.id}`)}>
+                          {c.number}
+                        </button>
+                      </td>
+                      <td className="p-2"><Badge variant="outline">{c.type}</Badge></td>
+                      <td className="p-2">{c.date}</td>
+                      <td className="p-2 text-right">{formatTND(cTotals.ttc || 0)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
       <DocumentAttachments documentType="invoice" documentId={invoice.id} organizationId={invoice.organization_id} />
     </div>

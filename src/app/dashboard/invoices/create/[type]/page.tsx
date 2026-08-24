@@ -7,7 +7,7 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoices, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const isAdjustment = invoiceType === "credit" || invoiceType === "debit"
   const sourceOrderId = searchParams.get("sourceOrderId")
   const sourceQuoteId = searchParams.get("sourceQuoteId")
+  const originalInvoiceIdParam = searchParams.get("originalInvoiceId")
   const flow: "sale" | "purchase" = sourceOrderId ? "purchase" : "sale"
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
@@ -46,12 +47,43 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [prefilling, setPrefilling] = useState(Boolean(sourceOrderId || sourceQuoteId))
+  const [prefilling, setPrefilling] = useState(Boolean(sourceOrderId || sourceQuoteId || originalInvoiceIdParam))
   const [sourceLabel, setSourceLabel] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isAdjustment) getInvoices().then(setInvoices).catch(console.error)
-  }, [isAdjustment])
+    if (isAdjustment && !originalInvoiceIdParam) getInvoices().then(setInvoices).catch(console.error)
+  }, [isAdjustment, originalInvoiceIdParam])
+
+  useEffect(() => {
+    async function prefillFromOriginalInvoice() {
+      try {
+        const original = await getInvoice(originalInvoiceIdParam!)
+        if (!original) return
+        const originalLines = await getInvoiceLines(original.id)
+        setOrganizationId(original.organization_id)
+        setCounterpartyId(original.counterparty_id)
+        setOriginalInvoiceId(original.id)
+        setLines(originalLines.map((l) => ({
+          code: l.code,
+          designation: l.designation,
+          unit: l.unit,
+          quantity: invoiceType === "credit" ? -l.quantity : l.quantity,
+          unit_price_puht: l.unit_price_puht,
+          transfer_price: 0,
+          tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
+          article_id: l.article_id,
+        })))
+        setDirection(invoiceType === "credit" ? (original.direction === "in" ? "out" : "in") : original.direction)
+        setSourceLabel(`invoice ${original.number}`)
+      } catch (err) {
+        console.error(err)
+        alert("Failed to load original invoice")
+      } finally {
+        setPrefilling(false)
+      }
+    }
+    if (originalInvoiceIdParam) prefillFromOriginalInvoice()
+  }, [originalInvoiceIdParam, invoiceType])
 
   useEffect(() => {
     async function prefillFromSource() {
@@ -152,9 +184,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         transfer_price: l.transfer_price,
       }))
 
+      const numberPrefix = invoiceType === "credit" ? "CN" : invoiceType === "debit" ? "DN" : "I"
       const invoice = await createInvoice(
         {
-          number: await getNextDocumentNumber(organizationId, "I"),
+          number: await getNextDocumentNumber(organizationId, numberPrefix),
           date,
           due_date: dueDate || null,
           organization_id: organizationId,
@@ -194,9 +227,15 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
   if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
 
+  const pageTitle = sourceLabel
+    ? isAdjustment
+      ? `${invoiceType === "credit" ? "Add Credit Note" : "Add Debit Note"} — from ${sourceLabel}`
+      : `Confirm Invoice — from ${sourceLabel}`
+    : `Create ${type} Invoice`
+
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">{sourceLabel ? `Confirm Invoice — from ${sourceLabel}` : `Create ${type} Invoice`}</h1>
+      <h1 className="text-2xl font-bold">{pageTitle}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -259,7 +298,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                   </SelectContent>
                 </Select>
               </div>
-              {isAdjustment && (
+              {isAdjustment && !originalInvoiceIdParam && (
                 <div className="grid gap-2">
                   <Label>Original invoice *</Label>
                   <Select value={originalInvoiceId} onValueChange={setOriginalInvoiceId}>
