@@ -320,8 +320,13 @@ export interface Database {
       consignment_lines: {
         Row: {
           id: string
-          invoice_id: string
-          source_line_id: string
+          invoice_id: string | null
+          source_line_id: string | null
+          organization_id: string | null
+          counterparty_id: string | null
+          date: string | null
+          direction: "in" | "out" | null
+          notes: string | null
           packaging_type: string
           units_per_article: number
           quantity: number
@@ -330,8 +335,13 @@ export interface Database {
         }
         Insert: {
           id?: string
-          invoice_id: string
-          source_line_id: string
+          invoice_id?: string | null
+          source_line_id?: string | null
+          organization_id?: string | null
+          counterparty_id?: string | null
+          date?: string | null
+          direction?: "in" | "out" | null
+          notes?: string | null
           packaging_type: string
           units_per_article?: number
           quantity?: number
@@ -340,8 +350,13 @@ export interface Database {
         }
         Update: {
           id?: string
-          invoice_id?: string
-          source_line_id?: string
+          invoice_id?: string | null
+          source_line_id?: string | null
+          organization_id?: string | null
+          counterparty_id?: string | null
+          date?: string | null
+          direction?: "in" | "out" | null
+          notes?: string | null
           packaging_type?: string
           units_per_article?: number
           quantity?: number
@@ -649,6 +664,17 @@ export type QuoteLine = Database["public"]["Tables"]["quote_lines"]["Row"]
 export type Invoice = Database["public"]["Tables"]["invoices"]["Row"]
 export type InvoiceLine = Database["public"]["Tables"]["invoice_lines"]["Row"]
 export type ConsignmentLine = Database["public"]["Tables"]["consignment_lines"]["Row"]
+
+// Backed by the consignment_balances view — net(sum(quantity)) per
+// counterparty + packaging_type across every charge (via invoice) and
+// return (standalone) row in consignment_lines.
+export interface ConsignmentBalance {
+  organization_id: string | null
+  counterparty_id: string | null
+  packaging_type: string
+  quantity_outstanding: number
+  deposit_outstanding: number
+}
 export type Delivery = Database["public"]["Tables"]["deliveries"]["Row"]
 export type DeliveryLine = Database["public"]["Tables"]["delivery_lines"]["Row"]
 export type Order = Database["public"]["Tables"]["orders"]["Row"]

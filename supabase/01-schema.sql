@@ -165,16 +165,36 @@ create table if not exists invoice_lines (
   tax_charges jsonb not null default '[]'::jsonb
 );
 
+-- A row is either a charge (tied to the invoice line whose article implied
+-- it, quantity positive) or a standalone return (invoice_id null, quantity
+-- negative, org/counterparty/date/direction carried directly since there's
+-- no invoice to derive them from) — never a mix, enforced by the check
+-- constraint below. Outstanding deposit liability per counterparty +
+-- packaging_type is always sum(quantity) over this one table.
 create table if not exists consignment_lines (
   id uuid primary key default uuid_generate_v4(),
-  invoice_id uuid not null references invoices(id) on delete cascade,
-  source_line_id uuid not null references invoice_lines(id) on delete cascade,
+  invoice_id uuid references invoices(id) on delete cascade,
+  source_line_id uuid references invoice_lines(id) on delete cascade,
+  organization_id uuid references organizations(id),
+  counterparty_id uuid references contacts(id),
+  date date,
+  direction text check (direction in ('in', 'out')),
+  notes text,
   packaging_type text not null,
   units_per_article numeric(12,2) not null default 1,
   quantity numeric(12,2) not null default 0,
   deposit_value numeric(12,2) not null default 0,
-  total numeric(12,2) not null default 0
+  total numeric(12,2) not null default 0,
+  constraint consignment_lines_origin_check check (
+    (invoice_id is not null and source_line_id is not null
+      and organization_id is null and counterparty_id is null and direction is null and date is null)
+    or
+    (invoice_id is null and source_line_id is null
+      and organization_id is not null and counterparty_id is not null and direction is not null and date is not null)
+  )
 );
+create index if not exists idx_consignment_lines_counterparty on consignment_lines(counterparty_id) where counterparty_id is not null;
+create index if not exists idx_consignment_lines_invoice on consignment_lines(invoice_id) where invoice_id is not null;
 
 -- Delivery Note (BL). Optional step in the sales flow, after a quote and
 -- before/alongside the invoice.

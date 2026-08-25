@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext } from "react"
-import { Home, FileText, FileSignature, Users, Newspaper, Boxes, Truck, ShoppingCart, ClipboardList } from "lucide-react"
+import { Home, FileText, FileSignature, Users, Newspaper, Boxes, Truck, ShoppingCart, ClipboardList, PackageOpen } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface NavigationItem {
@@ -65,6 +65,11 @@ const navigationItems: NavigationItem[] = [
     url: "/dashboard/issues",
     icon: ClipboardList,
   },
+  {
+    title: "Consignments",
+    url: "/dashboard/consignments",
+    icon: PackageOpen,
+  },
 ]
 
 function findNavigationItem(items: NavigationItem[], path: string): NavigationItem | null {
@@ -110,6 +115,8 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
     breadcrumbs.push({ label: "Orders", href: "/dashboard/orders", isLast: true })
   } else if (pathSegments.includes("issues")) {
     breadcrumbs.push({ label: "Issues", href: "/dashboard/issues", isLast: true })
+  } else if (pathSegments.includes("consignments")) {
+    breadcrumbs.push({ label: "Consignments", href: "/dashboard/consignments", isLast: true })
   } else if (pathSegments.includes("profile")) {
     breadcrumbs.push({ label: "Profile", href: "/dashboard/profile", isLast: true })
   } else if (pathSegments.includes("pme")) {

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
 import { castJson } from "@/lib/utils"
-import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, Consignment, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
+import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance, Consignment, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
 
 // ============================================
 // DOCUMENT NUMBERING
@@ -184,6 +184,69 @@ export async function getConsignments(invoiceId: string): Promise<ConsignmentLin
   return data || []
 }
 
+// Outstanding deposit liability per packaging type for one counterparty,
+// backed by the consignment_balances view (charges via invoices, returns
+// direct). Zeroed-out rows are dropped so a return form only ever offers
+// packaging types actually still outstanding.
+export async function getConsignmentBalances(counterpartyId: string): Promise<ConsignmentBalance[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("consignment_balances")
+    .select("*")
+    .eq("counterparty_id", counterpartyId)
+    .neq("quantity_outstanding", 0)
+
+  if (error) throw error
+  return data || []
+}
+
+// Every counterparty's outstanding balance, for the Consignments overview.
+export async function getAllConsignmentBalances(organizationId?: string): Promise<ConsignmentBalance[]> {
+  const supabase = createClient()
+  let query = supabase.from("consignment_balances").select("*").neq("quantity_outstanding", 0)
+  if (organizationId) query = query.eq("organization_id", organizationId)
+
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+// A standalone deposit refund — packaging physically returned, no invoice
+// involved. Quantity/total are stored negative (the same signed-delta
+// convention stock_movements already uses) so they net directly against
+// the positive charge rows an invoice created for the same counterparty +
+// packaging_type. Callers always pass the physical quantity returned as a
+// positive number; the sign is applied here, not left to the caller.
+export async function createConsignmentReturn(
+  entry: { organization_id: string; counterparty_id: string; date: string; direction: "in" | "out"; notes: string | null },
+  lines: { packaging_type: string; units_per_article: number; quantity: number; deposit_value: number }[]
+): Promise<ConsignmentLine[]> {
+  const supabase = createClient()
+  const rows = lines.map((l) => {
+    const quantity = -Math.abs(l.quantity)
+    return {
+      ...entry,
+      invoice_id: null,
+      source_line_id: null,
+      packaging_type: l.packaging_type,
+      units_per_article: l.units_per_article,
+      quantity,
+      deposit_value: l.deposit_value,
+      total: quantity * l.deposit_value,
+    }
+  })
+
+  const { data, error } = await supabase.from("consignment_lines").insert(rows).select()
+  if (error) throw error
+  return data || []
+}
+
+// The subset of consignment_lines columns a per-invoice-line deposit charge
+// fills in — everything a standalone return needs (organization_id,
+// counterparty_id, date, direction, notes) stays null on a charge row,
+// derivable instead via its invoice.
+type ConsignmentCharge = Pick<ConsignmentLine, "packaging_type" | "units_per_article" | "quantity" | "deposit_value" | "total">
+
 // Invoices are immutable (DB trigger blocks UPDATE/DELETE), so totals are
 // computed up front and the row is written once — no insert-then-update.
 // Each line carries its own consignments (deposits for the packaging that
@@ -194,7 +257,7 @@ export async function createInvoice(
   invoice: Omit<Invoice, "id" | "created_at" | "totals">,
   lines: (Omit<InvoiceLine, "id" | "invoice_id"> & {
     transfer_price?: number
-    consignments?: Omit<ConsignmentLine, "id" | "invoice_id" | "source_line_id">[]
+    consignments?: ConsignmentCharge[]
   })[]
 ): Promise<Invoice> {
   const supabase = createClient()
@@ -219,7 +282,16 @@ export async function createInvoice(
     if (linesError) throw linesError
 
     const consignmentRows = linesWithIds.flatMap((l) =>
-      (l.consignments || []).map((c) => ({ ...c, invoice_id: inv.id, source_line_id: l.id }))
+      (l.consignments || []).map((c) => ({
+        ...c,
+        invoice_id: inv.id,
+        source_line_id: l.id,
+        organization_id: null,
+        counterparty_id: null,
+        date: null,
+        direction: null,
+        notes: null,
+      }))
     )
 
     if (consignmentRows.length > 0) {
@@ -235,7 +307,7 @@ export async function createInvoice(
 // one invoice line — unitsPerArticle is packaging units consumed per unit
 // of the article sold (e.g. a crate-of-12 article implies 12 bottle
 // deposits per crate sold), same formula as the article page's calculator.
-export function consignmentsForLine(article: Article, lineQuantity: number): Omit<ConsignmentLine, "id" | "invoice_id" | "source_line_id">[] {
+export function consignmentsForLine(article: Article, lineQuantity: number): ConsignmentCharge[] {
   const consignment = castJson<Consignment>(article.consignment)
   if (!consignment.enabled) return []
   return consignment.packaging.map((pkg) => {
