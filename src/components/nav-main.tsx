@@ -28,6 +28,7 @@ export function NavMain({
     url: string
     icon?: LucideIcon
     isActive?: boolean
+    activePaths?: string[]
     items?: {
       title: string
       url: string
@@ -43,7 +44,8 @@ export function NavMain({
         {items.map((item) => {
           const isActive =
             pathname === item.url ||
-            (item.items && item.items.some((subItem) => pathname === subItem.url))
+            (item.items && item.items.some((subItem) => pathname === subItem.url)) ||
+            (item.activePaths && item.activePaths.some((p) => pathname === p || pathname.startsWith(p + "/")))
 
           if (item.items && item.items.length > 0) {
             return (

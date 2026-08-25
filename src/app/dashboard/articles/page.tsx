@@ -15,6 +15,8 @@ import type { Article, Stock, Consignment, TaxCharge } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
 import { castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
+import { SectionTabs } from "@/components/section-tabs"
+import { ARTICLES_TABS } from "@/lib/section-tabs-config"
 
 export default function ListArticlesPage() {
   const router = useRouter()
@@ -105,6 +107,7 @@ export default function ListArticlesPage() {
 
   return (
     <div className="space-y-4">
+      <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Articles</h1>
         <Button onClick={() => router.push("/dashboard/articles/add")}>Add Article</Button>

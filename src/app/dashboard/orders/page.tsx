@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { getOrders } from "@/lib/supabase/invoices"
+import { SectionTabs } from "@/components/section-tabs"
+import { PURCHASING_TABS } from "@/lib/section-tabs-config"
 import type { Order } from "@/types/database"
 
 export default function OrdersListPage() {
@@ -51,6 +53,7 @@ export default function OrdersListPage() {
 
   return (
     <div className="space-y-4">
+      <SectionTabs tabs={PURCHASING_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Orders</h1>
         <Button onClick={() => router.push("/dashboard/orders/create?type=supplier")}>Create Order</Button>

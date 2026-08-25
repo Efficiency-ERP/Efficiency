@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext } from "react"
-import { Home, FileText, FileSignature, Users, Newspaper, Boxes, Truck, ShoppingCart, ClipboardList, PackageOpen } from "lucide-react"
+import { Home, FileText, FileSignature, Users, Newspaper, ShoppingCart } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface NavigationItem {
@@ -9,6 +9,10 @@ export interface NavigationItem {
   url: string
   icon?: LucideIcon
   items?: { title: string; url: string }[]
+  // Sidebar-active check for a section whose sibling pages (reached via
+  // SectionTabs, not sub-items) live at different routes than `url` itself
+  // (url only ever redirects to the first tab).
+  activePaths?: string[]
 }
 
 export interface NavigationContextType {
@@ -19,6 +23,12 @@ export interface NavigationContextType {
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined)
 
+// Each of Sales/Purchasing/Articles is one sidebar row landing on its first
+// tab; the sibling pages within it (Quotes/Deliveries/Consignments under
+// Sales, Orders/Consignments under Purchasing, Articles/Stock/Issues under
+// Articles) are reached via the SectionTabs strip at the top of each page,
+// not as separate sidebar entries — Invoices stays flat since it's shared
+// by both flows, not owned by either side.
 const navigationItems: NavigationItem[] = [
   {
     title: "Dashboard",
@@ -26,9 +36,16 @@ const navigationItems: NavigationItem[] = [
     icon: Home,
   },
   {
-    title: "Quotes",
-    url: "/dashboard/quotes",
+    title: "Sales",
+    url: "/dashboard/sales",
     icon: FileSignature,
+    activePaths: ["/dashboard/quotes", "/dashboard/deliveries"],
+  },
+  {
+    title: "Purchasing",
+    url: "/dashboard/purchasing",
+    icon: ShoppingCart,
+    activePaths: ["/dashboard/orders"],
   },
   {
     title: "Invoices",
@@ -44,31 +61,7 @@ const navigationItems: NavigationItem[] = [
     title: "Articles",
     url: "/dashboard/articles",
     icon: Newspaper,
-  },
-  {
-    title: "Stock",
-    url: "/dashboard/stock",
-    icon: Boxes,
-  },
-  {
-    title: "Deliveries",
-    url: "/dashboard/deliveries",
-    icon: Truck,
-  },
-  {
-    title: "Orders",
-    url: "/dashboard/orders",
-    icon: ShoppingCart,
-  },
-  {
-    title: "Issues",
-    url: "/dashboard/issues",
-    icon: ClipboardList,
-  },
-  {
-    title: "Consignments",
-    url: "/dashboard/consignments",
-    icon: PackageOpen,
+    activePaths: ["/dashboard/stock", "/dashboard/issues"],
   },
 ]
 
@@ -100,7 +93,14 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
   const pathSegments = path.split("/").filter(Boolean)
 
   if (pathSegments.includes("quotes")) {
+    breadcrumbs.push({ label: "Sales", href: "/dashboard/sales", isLast: false })
     breadcrumbs.push({ label: "Quotes", href: "/dashboard/quotes", isLast: true })
+  } else if (pathSegments.includes("deliveries")) {
+    breadcrumbs.push({ label: "Sales", href: "/dashboard/sales", isLast: false })
+    breadcrumbs.push({ label: "Deliveries", href: "/dashboard/deliveries", isLast: true })
+  } else if (pathSegments.includes("orders")) {
+    breadcrumbs.push({ label: "Purchasing", href: "/dashboard/purchasing", isLast: false })
+    breadcrumbs.push({ label: "Orders", href: "/dashboard/orders", isLast: true })
   } else if (pathSegments.includes("invoices")) {
     breadcrumbs.push({ label: "Invoices", href: "/dashboard/invoices", isLast: true })
   } else if (pathSegments.includes("contacts")) {
@@ -108,12 +108,10 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
   } else if (pathSegments.includes("articles")) {
     breadcrumbs.push({ label: "Articles", href: "/dashboard/articles", isLast: true })
   } else if (pathSegments.includes("stock")) {
+    breadcrumbs.push({ label: "Articles", href: "/dashboard/articles", isLast: false })
     breadcrumbs.push({ label: "Stock", href: "/dashboard/stock", isLast: true })
-  } else if (pathSegments.includes("deliveries")) {
-    breadcrumbs.push({ label: "Deliveries", href: "/dashboard/deliveries", isLast: true })
-  } else if (pathSegments.includes("orders")) {
-    breadcrumbs.push({ label: "Orders", href: "/dashboard/orders", isLast: true })
   } else if (pathSegments.includes("issues")) {
+    breadcrumbs.push({ label: "Articles", href: "/dashboard/articles", isLast: false })
     breadcrumbs.push({ label: "Issues", href: "/dashboard/issues", isLast: true })
   } else if (pathSegments.includes("consignments")) {
     breadcrumbs.push({ label: "Consignments", href: "/dashboard/consignments", isLast: true })

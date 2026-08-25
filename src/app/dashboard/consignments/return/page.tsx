@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useMyPme } from "@/hooks/use-my-pme"
@@ -14,10 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
 import { formatTND } from "@/lib/utils"
+import { SectionTabs } from "@/components/section-tabs"
+import { SALES_TABS, PURCHASING_TABS } from "@/lib/section-tabs-config"
 import type { ConsignmentBalance } from "@/types/database"
 
 export default function CreateConsignmentReturnPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const side = searchParams.get("side") // "sale" | "purchase" | null
   const { selectedOrgId } = usePMESelection()
   const { contacts, organizations } = useContactsStore()
   const { isContactMyPme } = useMyPme()
@@ -69,7 +73,7 @@ export default function CreateConsignmentReturnPage() {
         lines.map((l) => ({ packaging_type: l.packaging_type, units_per_article: 1, quantity: l.quantity, deposit_value: l.deposit_value }))
       )
       await logAction(`Recorded consignment return for ${counterparty?.company_name || "counterparty"}`, undefined, organizationId)
-      router.push("/dashboard/consignments")
+      router.push(`/dashboard/consignments${side ? `?side=${side}` : ""}`)
     } catch (err) {
       console.error(err)
       alert("Failed to record return")
@@ -78,11 +82,18 @@ export default function CreateConsignmentReturnPage() {
     }
   }
 
-  const sortedContacts = sortMyPmeFirst(contacts, isContactMyPme)
+  const scopedContacts = side === "purchase"
+    ? contacts.filter((c) => c.party_type === "supplier")
+    : side === "sale"
+      ? contacts.filter((c) => c.party_type !== "supplier")
+      : contacts
+  const sortedContacts = sortMyPmeFirst(scopedContacts, isContactMyPme)
   const total = lines.reduce((s, l) => s + l.quantity * l.deposit_value, 0)
 
   return (
     <div className="max-w-4xl space-y-6">
+      {side === "sale" && <SectionTabs tabs={SALES_TABS} />}
+      {side === "purchase" && <SectionTabs tabs={PURCHASING_TABS} />}
       <h1 className="text-2xl font-bold">Record Consignment Return</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { getDeliveries } from "@/lib/supabase/invoices"
+import { SectionTabs } from "@/components/section-tabs"
+import { SALES_TABS } from "@/lib/section-tabs-config"
 import type { Delivery } from "@/types/database"
 
 export default function DeliveriesListPage() {
@@ -48,6 +50,7 @@ export default function DeliveriesListPage() {
 
   return (
     <div className="space-y-4">
+      <SectionTabs tabs={SALES_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Deliveries</h1>
         <Button onClick={() => router.push("/dashboard/deliveries/create")}>Create Delivery</Button>
