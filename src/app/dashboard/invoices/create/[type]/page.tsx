@@ -135,6 +135,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           setCounterpartyId(quote.counterparty_id)
           setNotes(quote.notes || "")
           setLines(quoteLines.map((l) => {
+            // Inherit whatever packaging selection was shown/edited on the
+            // quote itself, rather than recomputing blind and losing it —
+            // only fall back to a fresh suggestion if the quote never had one.
+            const quotedConsignments = castJson<ConsignmentCharge[]>(l.consignments)
             const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
             return {
               code: l.code,
@@ -145,7 +149,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               transfer_price: 0,
               tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
               article_id: l.article_id,
-              consignments: article ? consignmentsForLine(article, l.quantity) : [],
+              consignments: quotedConsignments.length > 0 ? quotedConsignments : (article ? consignmentsForLine(article, l.quantity) : []),
             }
           }))
           setDirection(defaultDirectionFor("sale"))

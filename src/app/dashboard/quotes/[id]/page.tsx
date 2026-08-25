@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { getQuote, getQuoteLines, getInvoiceBySourceQuote, getDeliveriesBySourceQuote } from "@/lib/supabase/invoices"
+import type { ConsignmentCharge } from "@/lib/supabase/invoices"
 import type { Invoice, Quote, QuoteLine, Delivery, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -123,6 +124,39 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
         </CardContent>
       </Card>
+
+      {lines.some((l) => castJson<ConsignmentCharge[]>(l.consignments).length > 0) && (
+        <Card>
+          <CardHeader><CardTitle>Consignments (estimate)</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {lines.map((line) => {
+              const consignments = castJson<ConsignmentCharge[]>(line.consignments)
+              if (consignments.length === 0) return null
+              return (
+                <div key={line.id} className="space-y-2">
+                  <div className="text-sm font-medium">{line.designation}</div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th></tr>
+                    </thead>
+                    <tbody>
+                      {consignments.map((c, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="p-2">{c.packaging_type}</td>
+                          <td className="p-2 text-right">{c.units_per_article}</td>
+                          <td className="p-2 text-right">{c.quantity}</td>
+                          <td className="p-2 text-right">{formatTND(c.deposit_value)}</td>
+                          <td className="p-2 text-right">{formatTND(c.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {deliveries.length > 0 && (
         <Card>

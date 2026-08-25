@@ -195,6 +195,7 @@ export interface Database {
           unit_price_puht: number
           remise_percent: number | null
           tax_charges: Json
+          consignments: Json
         }
         Insert: {
           id?: string
@@ -207,6 +208,7 @@ export interface Database {
           unit_price_puht?: number
           remise_percent?: number | null
           tax_charges?: Json
+          consignments?: Json
         }
         Update: {
           id?: string
@@ -219,6 +221,7 @@ export interface Database {
           unit_price_puht?: number
           remise_percent?: number | null
           tax_charges?: Json
+          consignments?: Json
         }
       }
       invoices: {

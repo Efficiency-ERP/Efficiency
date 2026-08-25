@@ -105,6 +105,7 @@ export default function CreateQuotePage() {
         unit_price_puht: l.unit_price_puht,
         remise_percent: 0,
         tax_charges: l.tax_charges as unknown as Json,
+        consignments: l.consignments as unknown as Json,
       }))
 
       const quote = await createQuote(

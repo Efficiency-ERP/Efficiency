@@ -117,7 +117,11 @@ create table if not exists quote_lines (
   quantity numeric(12,2) not null default 1,
   unit_price_puht numeric(12,2) not null default 0,
   remise_percent numeric(5,2) default 0,
-  tax_charges jsonb not null default '[]'::jsonb
+  tax_charges jsonb not null default '[]'::jsonb,
+  -- An estimate to show the customer on the quote itself — a quote never
+  -- creates real consignment_lines rows (nothing's been charged yet), so
+  -- this is the only place a quote's packaging selection is remembered.
+  consignments jsonb not null default '[]'::jsonb
 );
 
 -- Invoices are immutable once created (see forbid_invoice_mutation trigger
