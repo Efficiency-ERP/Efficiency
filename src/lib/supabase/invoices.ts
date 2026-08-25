@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
-import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge } from "@/types/database"
+import { castJson } from "@/lib/utils"
+import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
 
 // ============================================
 // DOCUMENT NUMBERING
@@ -32,6 +33,17 @@ export function defaultDirectionFor(flow: "sale" | "purchase"): InvoiceDirection
 // alone — the one place that sign lives.
 export function correctionSign(type: InvoiceType): 1 | -1 {
   return type === "credit" ? -1 : 1
+}
+
+// Net effect of one invoice on cash position: positive means it moves
+// money toward you, negative means away — sale documents start positive,
+// purchase documents start negative, and correctionSign flips that
+// further for a credit note. Used for the per-row +/- shown in an
+// invoice list, not for the Money In/Money Out totals (those stay
+// separate per-direction sums of magnitude, filtered by direction first).
+export function netCashFlow(invoice: Invoice): number {
+  const magnitude = correctionSign(invoice.type) * (castJson<InvoiceTotals>(invoice.totals).ttc || 0)
+  return invoice.direction === "out" ? -magnitude : magnitude
 }
 
 // ============================================

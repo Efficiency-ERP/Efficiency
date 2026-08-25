@@ -5,11 +5,12 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { DocumentAttachments } from "@/components/document-attachments"
-import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice, correctionSign } from "@/lib/supabase/invoices"
+import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [lines, setLines] = useState<InvoiceLine[]>([])
   const [consignments, setConsignments] = useState<ConsignmentLine[]>([])
   const [corrections, setCorrections] = useState<Invoice[]>([])
+  const [originalInvoice, setOriginalInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -28,14 +30,16 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         const inv = await getInvoice(id)
         setInvoice(inv)
         if (inv) {
-          const [lns, cons, corr] = await Promise.all([
+          const [lns, cons, corr, orig] = await Promise.all([
             getInvoiceLines(inv.id),
             getConsignments(inv.id),
             getCorrectionsForInvoice(inv.id),
+            inv.original_invoice_id ? getInvoice(inv.original_invoice_id) : Promise.resolve(null),
           ])
           setLines(lns)
           setConsignments(cons)
           setCorrections(corr)
+          setOriginalInvoice(orig)
         }
       } catch (err) {
         console.error(err)
@@ -69,10 +73,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
         <div className="flex gap-2">
           {invoice.type === "standard" && (
-            <>
-              <Button variant="secondary" onClick={() => router.push(`/dashboard/invoices/create/credit?originalInvoiceId=${invoice.id}`)}>Add Credit Note</Button>
-              <Button variant="secondary" onClick={() => router.push(`/dashboard/invoices/create/debit?originalInvoiceId=${invoice.id}`)}>Add Debit Note</Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary">Add Note</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => router.push(`/dashboard/invoices/create/credit?originalInvoiceId=${invoice.id}`)}>Credit Note</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push(`/dashboard/invoices/create/debit?originalInvoiceId=${invoice.id}`)}>Debit Note</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <Button variant="outline" onClick={() => window.print()}>Download PDF</Button>
         </div>
@@ -87,6 +96,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div><span className="text-muted-foreground">Sale/Purchase:</span> <Badge variant={invoice.direction === "in" ? "default" : "destructive"}>{invoice.direction === "in" ? "Sale" : "Purchase"}</Badge></div>
           <div><span className="text-muted-foreground">Due Date:</span> {invoice.due_date || "N/A"}</div>
           <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(invoice.payment_method)}</div>
+          {originalInvoice && (
+            <div>
+              <span className="text-muted-foreground">Corrects invoice:</span>{" "}
+              <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${originalInvoice.id}`)}>
+                {originalInvoice.number}
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -166,7 +183,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       </td>
                       <td className="p-2"><Badge variant="outline">{c.type}</Badge></td>
                       <td className="p-2">{c.date}</td>
-                      <td className="p-2 text-right">{formatTND(correctionSign(c.type) * (cTotals.ttc || 0))}</td>
+                      <td className={`p-2 text-right font-medium ${c.type === "credit" ? "text-red-600" : "text-emerald-600"}`}>
+                        {c.type === "credit" ? "-" : "+"}{formatTND(cTotals.ttc || 0)}
+                      </td>
                     </tr>
                   )
                 })}

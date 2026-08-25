@@ -263,6 +263,14 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         <Card>
           <CardHeader><CardTitle>Header</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {isAdjustment && originalInvoiceIdParam && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Correcting invoice:</span>{" "}
+                <button type="button" className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${originalInvoiceIdParam}`)}>
+                  {sourceLabel ? sourceLabel.replace(/^invoice /, "") : "…"}
+                </button>
+              </div>
+            )}
             {/* Org and counterparty are locked (not just prefilled) for a credit/debit
                 note — they're inherited from the invoice being corrected, and letting
                 someone repoint a correction at a different org/customer than its

@@ -9,18 +9,13 @@ import { usePMESelection } from "@/contexts/pme-context"
 import { formatTND, castJson, withTimeout } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import SalesBarChart from "@/components/SalesBarChart"
-import { getInvoices, correctionSign } from "@/lib/supabase/invoices"
+import { getInvoices, correctionSign, netCashFlow } from "@/lib/supabase/invoices"
 import { getOrders } from "@/lib/supabase/invoices"
 import { getDeliveries } from "@/lib/supabase/invoices"
 import { getIssues } from "@/lib/supabase/invoices"
 import type { Stock, InvoiceTotals, Invoice, Order, Delivery, Issue } from "@/types/database"
 
 type Range = "7" | "30" | "90" | "ytd"
-
-function signedTtc(inv: Invoice): number {
-  const magnitude = correctionSign(inv.type) * (castJson<InvoiceTotals>(inv.totals).ttc || 0)
-  return inv.direction === "out" ? -magnitude : magnitude
-}
 
 function getRangeStartDate(range: Range): Date {
   const now = new Date()
@@ -82,13 +77,13 @@ export default function DashboardHome() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart)
-      .reduce((s, inv) => s + signedTtc(inv), 0)
+      .reduce((s, inv) => s + netCashFlow(inv), 0)
   }, [filteredInvoices, now])
 
   const revenueToday = useMemo(() =>
     filteredInvoices
       .filter((inv) => inv.date === todayStr)
-      .reduce((s, inv) => s + signedTtc(inv), 0),
+      .reduce((s, inv) => s + netCashFlow(inv), 0),
     [filteredInvoices, todayStr]
   )
 
@@ -96,7 +91,7 @@ export default function DashboardHome() {
     const ytdStart = new Date(now.getFullYear(), 0, 1)
     return allInvoices
       .filter((inv) => new Date(inv.date) >= ytdStart)
-      .reduce((s, inv) => s + signedTtc(inv), 0)
+      .reduce((s, inv) => s + netCashFlow(inv), 0)
   }, [allInvoices, now])
 
   const moneyOutMTD = useMemo(() => {
@@ -127,7 +122,7 @@ export default function DashboardHome() {
           const d = new Date(inv.date)
           return d >= monthStart && d <= monthEnd
         })
-        .reduce((s, inv) => s + signedTtc(inv), 0)
+        .reduce((s, inv) => s + netCashFlow(inv), 0)
       return { label, value }
     })
   }, [allInvoices, now])

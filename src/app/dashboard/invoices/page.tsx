@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
-import { getInvoices, correctionSign } from "@/lib/supabase/invoices"
+import { getInvoices, correctionSign, netCashFlow } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceTotals } from "@/types/database"
 
 export default function AllInvoicesPage() {
@@ -89,7 +89,7 @@ export default function AllInvoicesPage() {
               <th className="text-left p-3">Number</th>
               <th className="text-left p-3">Date</th>
               <th className="text-left p-3">Type</th>
-              <th className="text-right p-3">TTC</th>
+              <th className="text-right p-3">Cash Flow</th>
               <th className="text-right p-3">Actions</th>
             </tr>
           </thead>
@@ -97,7 +97,7 @@ export default function AllInvoicesPage() {
             {filteredInvoices.length === 0 ? (
               <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">No invoices found</td></tr>
             ) : filteredInvoices.map((inv) => {
-              const totals = castJson<InvoiceTotals>(inv.totals)
+              const flow = netCashFlow(inv)
               return (
                 <tr key={inv.id} className="border-b hover:bg-muted/30">
                   <td className="p-3">
@@ -107,7 +107,9 @@ export default function AllInvoicesPage() {
                   </td>
                   <td className="p-3">{inv.date}</td>
                   <td className="p-3"><Badge variant="outline">{inv.type}</Badge></td>
-                  <td className="p-3 text-right">{formatTND(totals.ttc || 0)}</td>
+                  <td className={`p-3 text-right font-medium ${flow >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {flow >= 0 ? "+" : ""}{formatTND(flow)}
+                  </td>
                   <td className="p-3 text-right">
                     <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>View</Button>
                   </td>
