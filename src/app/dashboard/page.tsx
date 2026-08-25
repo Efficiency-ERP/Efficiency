@@ -9,7 +9,7 @@ import { usePMESelection } from "@/contexts/pme-context"
 import { formatTND, castJson, withTimeout } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import SalesBarChart from "@/components/SalesBarChart"
-import { getInvoices } from "@/lib/supabase/invoices"
+import { getInvoices, correctionSign } from "@/lib/supabase/invoices"
 import { getOrders } from "@/lib/supabase/invoices"
 import { getDeliveries } from "@/lib/supabase/invoices"
 import { getIssues } from "@/lib/supabase/invoices"
@@ -18,8 +18,8 @@ import type { Stock, InvoiceTotals, Invoice, Order, Delivery, Issue } from "@/ty
 type Range = "7" | "30" | "90" | "ytd"
 
 function signedTtc(inv: Invoice): number {
-  const ttc = castJson<InvoiceTotals>(inv.totals).ttc || 0
-  return inv.direction === "out" ? -ttc : ttc
+  const magnitude = correctionSign(inv.type) * (castJson<InvoiceTotals>(inv.totals).ttc || 0)
+  return inv.direction === "out" ? -magnitude : magnitude
 }
 
 function getRangeStartDate(range: Range): Date {
@@ -103,7 +103,7 @@ export default function DashboardHome() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart && inv.direction === "out")
-      .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
+      .reduce((s, inv) => s + correctionSign(inv.type) * (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
   }, [filteredInvoices, now])
 
   const inCount = filteredInvoices.filter((i) => i.direction === "in").length
@@ -113,7 +113,7 @@ export default function DashboardHome() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart)
-      .reduce((s, inv) => s + Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
+      .reduce((s, inv) => s + correctionSign(inv.type) * Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
   }, [filteredInvoices, now])
 
   const chartData = useMemo(() => {

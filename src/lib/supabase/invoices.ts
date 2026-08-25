@@ -18,11 +18,20 @@ export async function getNextDocumentNumber(organizationId: string, prefix: stri
 
 // Invoices default to money-in for a sale, money-out for a purchase. A
 // credit or debit note always inherits the flow of the invoice it corrects —
-// the correction itself (increase vs decrease) is carried by the sign of
-// its line quantities/totals, not by flipping direction. Still just a
-// default — callers can override per-invoice.
+// whether the correction adds or subtracts is a separate question, decided
+// by type alone (see correctionSign below), never by flipping direction.
+// Still just a default — callers can override per-invoice.
 export function defaultDirectionFor(flow: "sale" | "purchase"): InvoiceDirection {
   return flow === "sale" ? "in" : "out"
+}
+
+// Credit/debit note lines and totals always hold real, positive
+// quantities/amounts (never a negative stored to mean "this reduces").
+// Whether a correction's magnitude should add to or subtract from an
+// aggregate (Money In/Out, a running balance) is decided here, from type
+// alone — the one place that sign lives.
+export function correctionSign(type: InvoiceType): 1 | -1 {
+  return type === "credit" ? -1 : 1
 }
 
 // ============================================

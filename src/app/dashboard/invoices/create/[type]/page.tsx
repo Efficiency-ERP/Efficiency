@@ -30,6 +30,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
   const invoiceType = type as "standard" | "credit" | "debit"
   const isAdjustment = invoiceType === "credit" || invoiceType === "debit"
+  // Credit/debit note lines always hold real, positive quantities/amounts
+  // (e.g. "2 units returned" is quantity 2, never -2) — whether a
+  // correction adds or subtracts is decided by invoiceType alone wherever
+  // totals get aggregated or displayed, never by a stored sign.
   const sourceOrderId = searchParams.get("sourceOrderId")
   const sourceQuoteId = searchParams.get("sourceQuoteId")
   const originalInvoiceIdParam = searchParams.get("originalInvoiceId")
@@ -52,10 +56,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [prefilling, setPrefilling] = useState(isInferredFlow)
   const [sourceLabel, setSourceLabel] = useState<string | null>(null)
 
-  // A credit/debit note is always our own document, even when correcting a
-  // purchase invoice logged from a supplier — only a standalone money-out
-  // standard invoice needs its number typed in.
-  const isMoneyOut = direction === "out" && !isAdjustment
+  // A purchase-side correction is normally the supplier's own paperwork
+  // (their avoir/debit note, their reference number) arriving the same way
+  // the original purchase invoice did — same rule as standard invoices, no
+  // carve-out for adjustments.
+  const isMoneyOut = direction === "out"
 
   // Auto-select the issuing organization when there's only one to choose from
   // (the global PME filter already covers the case where one is pre-selected).
@@ -77,7 +82,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           code: l.code,
           designation: l.designation,
           unit: l.unit,
-          quantity: invoiceType === "credit" ? -l.quantity : l.quantity,
+          quantity: l.quantity,
           unit_price_puht: l.unit_price_puht,
           transfer_price: 0,
           tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
@@ -153,7 +158,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       code: article.code,
       designation: article.designation,
       unit: article.unit,
-      quantity: invoiceType === "credit" ? -1 : 1,
+      quantity: 1,
       unit_price_puht: article.unit_price_puht,
       transfer_price: article.transfer_price,
       tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),

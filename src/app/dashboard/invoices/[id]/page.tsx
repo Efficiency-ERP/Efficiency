@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { DocumentAttachments } from "@/components/document-attachments"
-import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice } from "@/lib/supabase/invoices"
+import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice, correctionSign } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -166,7 +166,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       </td>
                       <td className="p-2"><Badge variant="outline">{c.type}</Badge></td>
                       <td className="p-2">{c.date}</td>
-                      <td className="p-2 text-right">{formatTND(cTotals.ttc || 0)}</td>
+                      <td className="p-2 text-right">{formatTND(correctionSign(c.type) * (cTotals.ttc || 0))}</td>
                     </tr>
                   )
                 })}

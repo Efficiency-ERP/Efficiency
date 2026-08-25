@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
-import { getInvoices } from "@/lib/supabase/invoices"
+import { getInvoices, correctionSign } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceTotals } from "@/types/database"
 
 export default function AllInvoicesPage() {
@@ -47,8 +47,8 @@ export default function AllInvoicesPage() {
   }, [invoices, search, typeFilter])
 
   const totalCount = invoices.length
-  const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
-  const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
+  const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + correctionSign(i.type) * ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
+  const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + correctionSign(i.type) * ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
 
   if (loading) return <div className="text-muted-foreground">Loading invoices...</div>
 
