@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
 import { castJson } from "@/lib/utils"
-import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
+import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, Consignment, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
 
 // ============================================
 // DOCUMENT NUMBERING
@@ -186,10 +186,16 @@ export async function getConsignments(invoiceId: string): Promise<ConsignmentLin
 
 // Invoices are immutable (DB trigger blocks UPDATE/DELETE), so totals are
 // computed up front and the row is written once — no insert-then-update.
+// Each line carries its own consignments (deposits for the packaging that
+// line's article ships in) — consignment_lines.source_line_id is required,
+// so line ids are generated client-side up front rather than insert-then-
+// -relink, letting both tables be inserted from data we already have.
 export async function createInvoice(
   invoice: Omit<Invoice, "id" | "created_at" | "totals">,
-  lines: (Omit<InvoiceLine, "id" | "invoice_id"> & { transfer_price?: number })[],
-  consignments: Omit<ConsignmentLine, "id" | "invoice_id">[]
+  lines: (Omit<InvoiceLine, "id" | "invoice_id"> & {
+    transfer_price?: number
+    consignments?: Omit<ConsignmentLine, "id" | "invoice_id" | "source_line_id">[]
+  })[]
 ): Promise<Invoice> {
   const supabase = createClient()
 
@@ -204,22 +210,44 @@ export async function createInvoice(
   if (invError) throw invError
 
   if (lines.length > 0) {
+    const linesWithIds = lines.map((l) => ({ ...l, id: crypto.randomUUID() }))
+
     const { error: linesError } = await supabase
       .from("invoice_lines")
-      .insert(lines.map(({ transfer_price: _transferPrice, ...l }) => ({ ...l, invoice_id: inv.id })))
+      .insert(linesWithIds.map(({ transfer_price: _transferPrice, consignments: _consignments, ...l }) => ({ ...l, invoice_id: inv.id })))
 
     if (linesError) throw linesError
-  }
 
-  if (consignments.length > 0) {
-    const { error: consError } = await supabase
-      .from("consignment_lines")
-      .insert(consignments.map((c) => ({ ...c, invoice_id: inv.id })))
+    const consignmentRows = linesWithIds.flatMap((l) =>
+      (l.consignments || []).map((c) => ({ ...c, invoice_id: inv.id, source_line_id: l.id }))
+    )
 
-    if (consError) throw consError
+    if (consignmentRows.length > 0) {
+      const { error: consError } = await supabase.from("consignment_lines").insert(consignmentRows)
+      if (consError) throw consError
+    }
   }
 
   return inv
+}
+
+// The deposit lines an article's consignment packaging config implies for
+// one invoice line — unitsPerArticle is packaging units consumed per unit
+// of the article sold (e.g. a crate-of-12 article implies 12 bottle
+// deposits per crate sold), same formula as the article page's calculator.
+export function consignmentsForLine(article: Article, lineQuantity: number): Omit<ConsignmentLine, "id" | "invoice_id" | "source_line_id">[] {
+  const consignment = castJson<Consignment>(article.consignment)
+  if (!consignment.enabled) return []
+  return consignment.packaging.map((pkg) => {
+    const quantity = lineQuantity * pkg.unitsPerArticle
+    return {
+      packaging_type: pkg.type,
+      units_per_article: pkg.unitsPerArticle,
+      quantity,
+      deposit_value: pkg.depositValue,
+      total: quantity * pkg.depositValue,
+    }
+  })
 }
 
 // ============================================

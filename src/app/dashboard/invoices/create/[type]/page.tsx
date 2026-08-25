@@ -1,13 +1,13 @@
 "use client"
 
-import { use, useState, useEffect, Fragment } from "react"
+import { use, useState, useEffect, useMemo, Fragment } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -198,6 +198,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         remise_percent: 0,
         tax_charges: l.tax_charges as unknown as Json,
         transfer_price: l.transfer_price,
+        consignments: (() => {
+          const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
+          return article ? consignmentsForLine(article, l.quantity) : []
+        })(),
       }))
 
       const numberPrefix = invoiceType === "credit" ? "CN" : invoiceType === "debit" ? "DN" : "I"
@@ -221,8 +225,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           original_invoice_id: isAdjustment ? (originalInvoiceId || null) : null,
           notes: notes || null,
         },
-        invoiceLines,
-        [] // TODO: auto-generate consignments
+        invoiceLines
       )
       if (sourceOrderId) await markOrderFinal(sourceOrderId)
       if (sourceQuoteId) await markQuoteAccepted(sourceQuoteId)
@@ -246,6 +249,18 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
 
   const totals = computeInvoiceTotals(lines)
+
+  // Deposit lines implied by each line's article packaging config, purely
+  // derived from the current lines — recomputes automatically as lines
+  // change rather than needing its own edit UI (correcting a deposit rate
+  // means fixing the article's packaging config, not this one invoice).
+  const previewConsignments = useMemo(
+    () => lines.flatMap((l) => {
+      const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
+      return article ? consignmentsForLine(article, l.quantity) : []
+    }),
+    [lines, articles]
+  )
 
   if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
 
@@ -422,6 +437,30 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             )}
           </CardContent>
         </Card>
+
+        {previewConsignments.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle>Consignments</CardTitle></CardHeader>
+            <CardContent>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Units/Art</th><th className="text-right p-2">Qty</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th></tr>
+                </thead>
+                <tbody>
+                  {previewConsignments.map((c, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="p-2">{c.packaging_type}</td>
+                      <td className="p-2 text-right">{c.units_per_article}</td>
+                      <td className="p-2 text-right">{c.quantity}</td>
+                      <td className="p-2 text-right">{c.deposit_value.toFixed(2)} TND</td>
+                      <td className="p-2 text-right">{c.total.toFixed(2)} TND</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
