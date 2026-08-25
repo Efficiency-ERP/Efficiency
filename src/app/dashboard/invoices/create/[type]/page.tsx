@@ -11,7 +11,7 @@ import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoi
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
@@ -296,9 +296,17 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                 {isAdjustment ? (
                   <div className="text-sm py-2">{contacts.find((c) => c.id === counterpartyId)?.company_name || "—"}</div>
                 ) : (
-                  <Select value={counterpartyId} onValueChange={setCounterpartyId}>
+                  <Select
+                    value={counterpartyId}
+                    onValueChange={(v) => {
+                      if (v === "__new__") { router.push("/dashboard/contacts/add"); return }
+                      setCounterpartyId(v)
+                    }}
+                  >
                     <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__new__">+ New Contact</SelectItem>
+                      <SelectSeparator />
                       {filteredContacts.map((c) => (
                         <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
                           {c.company_name}
@@ -309,11 +317,6 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                   </Select>
                 )}
               </div>
-              {!isAdjustment && (
-                <div className="grid gap-2">
-                  <Button type="button" variant="outline" onClick={() => router.push("/dashboard/contacts/add")}>+ New Contact</Button>
-                </div>
-              )}
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
