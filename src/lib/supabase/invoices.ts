@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
 import { castJson } from "@/lib/utils"
-import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance, Consignment, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
+import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance, ConsignmentPackaging, Consignment, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
 
 // ============================================
 // DOCUMENT NUMBERING
@@ -245,7 +245,7 @@ export async function createConsignmentReturn(
 // fills in — everything a standalone return needs (organization_id,
 // counterparty_id, date, direction, notes) stays null on a charge row,
 // derivable instead via its invoice.
-type ConsignmentCharge = Pick<ConsignmentLine, "packaging_type" | "units_per_article" | "quantity" | "deposit_value" | "total">
+export type ConsignmentCharge = Pick<ConsignmentLine, "packaging_type" | "units_per_article" | "quantity" | "deposit_value" | "total">
 
 // Invoices are immutable (DB trigger blocks UPDATE/DELETE), so totals are
 // computed up front and the row is written once — no insert-then-update.
@@ -303,23 +303,79 @@ export async function createInvoice(
   return inv
 }
 
-// The deposit lines an article's consignment packaging config implies for
-// one invoice line — unitsPerArticle is packaging units consumed per unit
-// of the article sold (e.g. a crate-of-12 article implies 12 bottle
-// deposits per crate sold), same formula as the article page's calculator.
+// Picks which packaging container(s) to charge a deposit for, given a
+// quantity of units sold and the article's configured options. Options
+// that share a `type` (e.g. two different crate sizes both filed under
+// "CASIER") are alternatives, not simultaneous charges — unitsPerArticle
+// is a container's capacity, not a per-unit multiplier. Tries an exact
+// combination largest-size-first (e.g. 18 with a 12-fit and a 6-fit ->
+// one of each); if the quantity doesn't divide evenly across the
+// available sizes (e.g. 7 with only 6-fit/12-fit), that partial
+// combination is discarded in favor of a single container of the
+// smallest size that covers the whole quantity, rather than leaving a
+// partial container.
+export function pickPackagingContainers(packaging: ConsignmentPackaging[], quantity: number): ConsignmentCharge[] {
+  if (quantity <= 0) return []
+
+  const byType = new Map<string, ConsignmentPackaging[]>()
+  for (const pkg of packaging) {
+    const list = byType.get(pkg.type) || []
+    list.push(pkg)
+    byType.set(pkg.type, list)
+  }
+
+  const result: ConsignmentCharge[] = []
+
+  for (const [type, options] of byType) {
+    const sizesDesc = [...options].sort((a, b) => b.unitsPerArticle - a.unitsPerArticle)
+    const counts = new Map<number, number>()
+    let remaining = quantity
+
+    for (const size of sizesDesc) {
+      const count = Math.floor(remaining / size.unitsPerArticle)
+      if (count > 0) {
+        counts.set(size.unitsPerArticle, count)
+        remaining -= count * size.unitsPerArticle
+      }
+    }
+
+    if (remaining > 0) {
+      const covering = sizesDesc.filter((s) => s.unitsPerArticle >= quantity).sort((a, b) => a.unitsPerArticle - b.unitsPerArticle)[0]
+      if (covering) {
+        result.push({ packaging_type: type, units_per_article: covering.unitsPerArticle, quantity: 1, deposit_value: covering.depositValue, total: covering.depositValue })
+      } else {
+        // Quantity exceeds even the largest configured size — use as many
+        // of the largest as needed to cover it.
+        const largest = sizesDesc[0]
+        const count = Math.ceil(quantity / largest.unitsPerArticle)
+        result.push({ packaging_type: type, units_per_article: largest.unitsPerArticle, quantity: count, deposit_value: largest.depositValue, total: count * largest.depositValue })
+      }
+      continue
+    }
+
+    for (const [unitsPerArticle, count] of counts) {
+      const size = options.find((o) => o.unitsPerArticle === unitsPerArticle)!
+      result.push({ packaging_type: type, units_per_article: unitsPerArticle, quantity: count, deposit_value: size.depositValue, total: count * size.depositValue })
+    }
+  }
+
+  return result
+}
+
+// Suggested deposit lines for one invoice/quote line, from the article's
+// consignment config — a starting point the create form lets someone edit
+// (or override entirely), same as any other prefill in this app.
 export function consignmentsForLine(article: Article, lineQuantity: number): ConsignmentCharge[] {
   const consignment = castJson<Consignment>(article.consignment)
   if (!consignment.enabled) return []
-  return consignment.packaging.map((pkg) => {
-    const quantity = lineQuantity * pkg.unitsPerArticle
-    return {
-      packaging_type: pkg.type,
-      units_per_article: pkg.unitsPerArticle,
-      quantity,
-      deposit_value: pkg.depositValue,
-      total: quantity * pkg.depositValue,
-    }
-  })
+  return pickPackagingContainers(consignment.packaging, lineQuantity)
+}
+
+// Sum of physical units a set of chosen containers actually covers, so a
+// create form can warn when someone has edited the packaging selection
+// down below what the line's own quantity requires.
+export function coveredQuantity(consignments: Pick<ConsignmentCharge, "units_per_article" | "quantity">[]): number {
+  return consignments.reduce((s, c) => s + c.units_per_article * c.quantity, 0)
 }
 
 // ============================================

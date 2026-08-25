@@ -1,13 +1,14 @@
 "use client"
 
-import { use, useState, useEffect, useMemo, Fragment } from "react"
+import { use, useState, useEffect, Fragment } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, coveredQuantity, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
+import type { ConsignmentCharge } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -50,7 +51,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [manualNumber, setManualNumber] = useState("")
   const [originalInvoiceId, setOriginalInvoiceId] = useState("")
   const [notes, setNotes] = useState("")
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [prefilling, setPrefilling] = useState(isInferredFlow)
@@ -78,16 +79,20 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         setOrganizationId(original.organization_id)
         setCounterpartyId(original.counterparty_id)
         setOriginalInvoiceId(original.id)
-        setLines(originalLines.map((l) => ({
-          code: l.code,
-          designation: l.designation,
-          unit: l.unit,
-          quantity: l.quantity,
-          unit_price_puht: l.unit_price_puht,
-          transfer_price: 0,
-          tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
-          article_id: l.article_id,
-        })))
+        setLines(originalLines.map((l) => {
+          const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
+          return {
+            code: l.code,
+            designation: l.designation,
+            unit: l.unit,
+            quantity: l.quantity,
+            unit_price_puht: l.unit_price_puht,
+            transfer_price: 0,
+            tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
+            article_id: l.article_id,
+            consignments: article ? consignmentsForLine(article, l.quantity) : [],
+          }
+        }))
         setDirection(original.direction)
         setSourceLabel(`invoice ${original.number}`)
       } catch (err) {
@@ -118,6 +123,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             transfer_price: 0,
             tax_charges: defaultTaxCharges(),
             article_id: null,
+            consignments: [],
           })))
           setDirection(defaultDirectionFor("purchase"))
           setSourceLabel(`order ${order.number}`)
@@ -128,16 +134,20 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           setOrganizationId(quote.organization_id)
           setCounterpartyId(quote.counterparty_id)
           setNotes(quote.notes || "")
-          setLines(quoteLines.map((l) => ({
-            code: l.code,
-            designation: l.designation,
-            unit: l.unit,
-            quantity: l.quantity,
-            unit_price_puht: l.unit_price_puht,
-            transfer_price: 0,
-            tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
-            article_id: l.article_id,
-          })))
+          setLines(quoteLines.map((l) => {
+            const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
+            return {
+              code: l.code,
+              designation: l.designation,
+              unit: l.unit,
+              quantity: l.quantity,
+              unit_price_puht: l.unit_price_puht,
+              transfer_price: 0,
+              tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
+              article_id: l.article_id,
+              consignments: article ? consignmentsForLine(article, l.quantity) : [],
+            }
+          }))
           setDirection(defaultDirectionFor("sale"))
           setSourceLabel(`quote ${quote.number}`)
         }
@@ -163,20 +173,49 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       transfer_price: article.transfer_price,
       tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),
       article_id: article.id,
+      consignments: consignmentsForLine(article, 1),
     }])
   }
 
   const addFreeformLine = () => {
-    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null }])
+    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null, consignments: [] }])
   }
 
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => {
     const updated = [...lines]
     updated[i] = { ...updated[i], ...patch }
+    // Changing quantity re-suggests the packaging selection from scratch —
+    // any manual tweak to it is for the quantity that was there before.
+    if (patch.quantity !== undefined) {
+      const article = updated[i].article_id ? articles.find((a) => a.id === updated[i].article_id) : null
+      updated[i].consignments = article ? consignmentsForLine(article, patch.quantity) : []
+    }
     setLines(updated)
   }
 
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i))
+
+  const addConsignmentLine = (lineIndex: number) => {
+    const updated = [...lines]
+    updated[lineIndex].consignments = [...updated[lineIndex].consignments, { packaging_type: "", units_per_article: 1, quantity: 1, deposit_value: 0, total: 0 }]
+    setLines(updated)
+  }
+
+  const updateConsignmentLine = (lineIndex: number, pkgIndex: number, patch: Partial<ConsignmentCharge>) => {
+    const updated = [...lines]
+    const consignments = [...updated[lineIndex].consignments]
+    const merged = { ...consignments[pkgIndex], ...patch }
+    merged.total = merged.quantity * merged.deposit_value
+    consignments[pkgIndex] = merged
+    updated[lineIndex] = { ...updated[lineIndex], consignments }
+    setLines(updated)
+  }
+
+  const removeConsignmentLine = (lineIndex: number, pkgIndex: number) => {
+    const updated = [...lines]
+    updated[lineIndex] = { ...updated[lineIndex], consignments: updated[lineIndex].consignments.filter((_, idx) => idx !== pkgIndex) }
+    setLines(updated)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -198,10 +237,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         remise_percent: 0,
         tax_charges: l.tax_charges as unknown as Json,
         transfer_price: l.transfer_price,
-        consignments: (() => {
-          const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
-          return article ? consignmentsForLine(article, l.quantity) : []
-        })(),
+        consignments: l.consignments,
       }))
 
       const numberPrefix = invoiceType === "credit" ? "CN" : invoiceType === "debit" ? "DN" : "I"
@@ -249,18 +285,6 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
 
   const totals = computeInvoiceTotals(lines)
-
-  // Deposit lines implied by each line's article packaging config, purely
-  // derived from the current lines — recomputes automatically as lines
-  // change rather than needing its own edit UI (correcting a deposit rate
-  // means fixing the article's packaging config, not this one invoice).
-  const previewConsignments = useMemo(
-    () => lines.flatMap((l) => {
-      const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
-      return article ? consignmentsForLine(article, l.quantity) : []
-    }),
-    [lines, articles]
-  )
 
   if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
 
@@ -421,7 +445,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                             {formatTaxCharges(line.tax_charges)}
                           </Button>
                         </td>
-                        <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td>
+                        <td className="p-1 whitespace-nowrap">
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addConsignmentLine(i)} title="Add a packaging deposit for this line">+ Deposit</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button>
+                        </td>
                       </tr>
                       {expandedLine === i && (
                         <tr className="border-b bg-muted/30">
@@ -438,26 +465,39 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           </CardContent>
         </Card>
 
-        {previewConsignments.length > 0 && (
+        {lines.some((l) => l.consignments.length > 0) && (
           <Card>
             <CardHeader><CardTitle>Consignments</CardTitle></CardHeader>
-            <CardContent>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Units/Art</th><th className="text-right p-2">Qty</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th></tr>
-                </thead>
-                <tbody>
-                  {previewConsignments.map((c, i) => (
-                    <tr key={i} className="border-b">
-                      <td className="p-2">{c.packaging_type}</td>
-                      <td className="p-2 text-right">{c.units_per_article}</td>
-                      <td className="p-2 text-right">{c.quantity}</td>
-                      <td className="p-2 text-right">{c.deposit_value.toFixed(2)} TND</td>
-                      <td className="p-2 text-right">{c.total.toFixed(2)} TND</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <CardContent className="space-y-4">
+              {lines.map((line, i) => {
+                if (line.consignments.length === 0) return null
+                const covered = coveredQuantity(line.consignments)
+                return (
+                  <div key={i} className="space-y-2">
+                    <div className="text-sm font-medium">{line.designation || "Line"} <span className="text-muted-foreground font-normal">(qty {line.quantity})</span></div>
+                    {covered < line.quantity && (
+                      <div className="text-sm text-amber-600">⚠ Selected packaging covers {covered} of {line.quantity} units ordered.</div>
+                    )}
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                        {line.consignments.map((c, j) => (
+                          <tr key={j} className="border-b">
+                            <td className="p-1"><Input value={c.packaging_type} onChange={(e) => updateConsignmentLine(i, j, { packaging_type: e.target.value })} className="h-8" /></td>
+                            <td className="p-1"><Input type="number" value={c.units_per_article} onChange={(e) => updateConsignmentLine(i, j, { units_per_article: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
+                            <td className="p-1"><Input type="number" value={c.quantity} onChange={(e) => updateConsignmentLine(i, j, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
+                            <td className="p-1"><Input type="number" step="0.01" value={c.deposit_value} onChange={(e) => updateConsignmentLine(i, j, { deposit_value: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
+                            <td className="p-2 text-right">{c.total.toFixed(2)} TND</td>
+                            <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeConsignmentLine(i, j)}>X</Button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
             </CardContent>
           </Card>
         )}

@@ -7,12 +7,13 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createQuote, getNextDocumentNumber, computeInvoiceTotals } from "@/lib/supabase/invoices"
+import { createQuote, getNextDocumentNumber, computeInvoiceTotals, consignmentsForLine, coveredQuantity } from "@/lib/supabase/invoices"
+import type { ConsignmentCharge } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
 import { castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
@@ -30,7 +31,7 @@ export default function CreateQuotePage() {
   const [counterpartyId, setCounterpartyId] = useState("")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState("")
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -45,20 +46,47 @@ export default function CreateQuotePage() {
       unit_price_puht: article.unit_price_puht,
       tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),
       article_id: article.id,
+      consignments: consignmentsForLine(article, 1),
     }])
   }
 
   const addFreeformLine = () => {
-    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, tax_charges: defaultTaxCharges(), article_id: null }])
+    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, tax_charges: defaultTaxCharges(), article_id: null, consignments: [] }])
   }
 
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => {
     const updated = [...lines]
     updated[i] = { ...updated[i], ...patch }
+    if (patch.quantity !== undefined) {
+      const article = updated[i].article_id ? articles.find((a) => a.id === updated[i].article_id) : null
+      updated[i].consignments = article ? consignmentsForLine(article, patch.quantity) : []
+    }
     setLines(updated)
   }
 
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i))
+
+  const addConsignmentLine = (lineIndex: number) => {
+    const updated = [...lines]
+    updated[lineIndex].consignments = [...updated[lineIndex].consignments, { packaging_type: "", units_per_article: 1, quantity: 1, deposit_value: 0, total: 0 }]
+    setLines(updated)
+  }
+
+  const updateConsignmentLine = (lineIndex: number, pkgIndex: number, patch: Partial<ConsignmentCharge>) => {
+    const updated = [...lines]
+    const consignments = [...updated[lineIndex].consignments]
+    const merged = { ...consignments[pkgIndex], ...patch }
+    merged.total = merged.quantity * merged.deposit_value
+    consignments[pkgIndex] = merged
+    updated[lineIndex] = { ...updated[lineIndex], consignments }
+    setLines(updated)
+  }
+
+  const removeConsignmentLine = (lineIndex: number, pkgIndex: number) => {
+    const updated = [...lines]
+    updated[lineIndex] = { ...updated[lineIndex], consignments: updated[lineIndex].consignments.filter((_, idx) => idx !== pkgIndex) }
+    setLines(updated)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -195,7 +223,10 @@ export default function CreateQuotePage() {
                             {formatTaxCharges(line.tax_charges)}
                           </Button>
                         </td>
-                        <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td>
+                        <td className="p-1 whitespace-nowrap">
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addConsignmentLine(i)} title="Add a packaging deposit for this line">+ Deposit</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button>
+                        </td>
                       </tr>
                       {expandedLine === i && (
                         <tr className="border-b bg-muted/30">
@@ -211,6 +242,46 @@ export default function CreateQuotePage() {
             )}
           </CardContent>
         </Card>
+
+        {lines.some((l) => l.consignments.length > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Consignments</CardTitle>
+              <CardDescription>An estimate for the customer — the actual deposit is charged on the invoice, not stored on this quote.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {lines.map((line, i) => {
+                if (line.consignments.length === 0) return null
+                const covered = coveredQuantity(line.consignments)
+                return (
+                  <div key={i} className="space-y-2">
+                    <div className="text-sm font-medium">{line.designation || "Line"} <span className="text-muted-foreground font-normal">(qty {line.quantity})</span></div>
+                    {covered < line.quantity && (
+                      <div className="text-sm text-amber-600">⚠ Selected packaging covers {covered} of {line.quantity} units ordered.</div>
+                    )}
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                        {line.consignments.map((c, j) => (
+                          <tr key={j} className="border-b">
+                            <td className="p-1"><Input value={c.packaging_type} onChange={(e) => updateConsignmentLine(i, j, { packaging_type: e.target.value })} className="h-8" /></td>
+                            <td className="p-1"><Input type="number" value={c.units_per_article} onChange={(e) => updateConsignmentLine(i, j, { units_per_article: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
+                            <td className="p-1"><Input type="number" value={c.quantity} onChange={(e) => updateConsignmentLine(i, j, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
+                            <td className="p-1"><Input type="number" step="0.01" value={c.deposit_value} onChange={(e) => updateConsignmentLine(i, j, { deposit_value: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
+                            <td className="p-2 text-right">{c.total.toFixed(2)} TND</td>
+                            <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeConsignmentLine(i, j)}>X</Button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
