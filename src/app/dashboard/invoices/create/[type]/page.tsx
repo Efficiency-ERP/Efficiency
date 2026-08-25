@@ -7,7 +7,7 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, coveredQuantity, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, coveredQuantity, getConsignments, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -75,24 +75,30 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       try {
         const original = await getInvoice(originalInvoiceIdParam!)
         if (!original) return
-        const originalLines = await getInvoiceLines(original.id)
+        const [originalLines, originalConsignments] = await Promise.all([
+          getInvoiceLines(original.id),
+          getConsignments(original.id),
+        ])
         setOrganizationId(original.organization_id)
         setCounterpartyId(original.counterparty_id)
         setOriginalInvoiceId(original.id)
-        setLines(originalLines.map((l) => {
-          const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
-          return {
-            code: l.code,
-            designation: l.designation,
-            unit: l.unit,
-            quantity: l.quantity,
-            unit_price_puht: l.unit_price_puht,
-            transfer_price: 0,
-            tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
-            article_id: l.article_id,
-            consignments: article ? consignmentsForLine(article, l.quantity) : [],
-          }
-        }))
+        setLines(originalLines.map((l) => ({
+          code: l.code,
+          designation: l.designation,
+          unit: l.unit,
+          quantity: l.quantity,
+          unit_price_puht: l.unit_price_puht,
+          transfer_price: 0,
+          tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
+          article_id: l.article_id,
+          // What was actually charged on the original invoice's own line,
+          // not a fresh recompute from the article's config — if the
+          // article's packaging changed since, a correction still needs to
+          // reverse exactly what was originally charged.
+          consignments: originalConsignments
+            .filter((c) => c.source_line_id === l.id)
+            .map((c) => ({ packaging_type: c.packaging_type, units_per_article: c.units_per_article, quantity: c.quantity, deposit_value: c.deposit_value, total: c.total })),
+        })))
         setDirection(original.direction)
         setSourceLabel(`invoice ${original.number}`)
       } catch (err) {
