@@ -263,35 +263,49 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         <Card>
           <CardHeader><CardTitle>Header</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {/* Org and counterparty are locked (not just prefilled) for a credit/debit
+                note — they're inherited from the invoice being corrected, and letting
+                someone repoint a correction at a different org/customer than its
+                original would break the relationship the whole document exists for. */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Issuing Organization *</Label>
-                <Select value={organizationId} onValueChange={setOrganizationId}>
-                  <SelectTrigger><SelectValue placeholder="Select issuing organization" /></SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isAdjustment ? (
+                  <div className="text-sm py-2">{organizations.find((o) => o.id === organizationId)?.name || "—"}</div>
+                ) : (
+                  <Select value={organizationId} onValueChange={setOrganizationId}>
+                    <SelectTrigger><SelectValue placeholder="Select issuing organization" /></SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label>Counterparty *</Label>
-                <Select value={counterpartyId} onValueChange={setCounterpartyId}>
-                  <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
-                  <SelectContent>
-                    {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
-                        {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isAdjustment ? (
+                  <div className="text-sm py-2">{contacts.find((c) => c.id === counterpartyId)?.company_name || "—"}</div>
+                ) : (
+                  <Select value={counterpartyId} onValueChange={setCounterpartyId}>
+                    <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
+                    <SelectContent>
+                      {filteredContacts.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                          {c.company_name}
+                          {isContactMyPme(c) && <PmeBadge />}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
-              <div className="grid gap-2">
-                <Button type="button" variant="outline" onClick={() => router.push("/dashboard/contacts/add")}>+ New Contact</Button>
-              </div>
+              {!isAdjustment && (
+                <div className="grid gap-2">
+                  <Button type="button" variant="outline" onClick={() => router.push("/dashboard/contacts/add")}>+ New Contact</Button>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
