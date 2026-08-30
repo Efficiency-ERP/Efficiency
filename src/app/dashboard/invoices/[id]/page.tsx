@@ -5,19 +5,23 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
-import { getInvoice, getInvoiceLines, getConsignments } from "@/lib/supabase/invoices"
+import { DocumentAttachments } from "@/components/document-attachments"
+import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { contacts } = useContactsStore()
+  const { contacts, organizations } = useContactsStore()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [lines, setLines] = useState<InvoiceLine[]>([])
   const [consignments, setConsignments] = useState<ConsignmentLine[]>([])
+  const [corrections, setCorrections] = useState<Invoice[]>([])
+  const [originalInvoice, setOriginalInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,12 +30,16 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         const inv = await getInvoice(id)
         setInvoice(inv)
         if (inv) {
-          const [lns, cons] = await Promise.all([
+          const [lns, cons, corr, orig] = await Promise.all([
             getInvoiceLines(inv.id),
             getConsignments(inv.id),
+            getCorrectionsForInvoice(inv.id),
+            inv.original_invoice_id ? getInvoice(inv.original_invoice_id) : Promise.resolve(null),
           ])
           setLines(lns)
           setConsignments(cons)
+          setCorrections(corr)
+          setOriginalInvoice(orig)
         }
       } catch (err) {
         console.error(err)
@@ -43,6 +51,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   }, [id])
 
   const counterparty = invoice ? contacts.find((c) => c.id === invoice.counterparty_id) : null
+  const issuingOrg = invoice ? organizations.find((o) => o.id === invoice.organization_id) : null
 
   if (loading) return <div className="text-muted-foreground">Loading...</div>
 
@@ -63,7 +72,17 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-muted-foreground">{invoice.date}</p>
         </div>
         <div className="flex gap-2">
-          {invoice.status === "draft" && <Button variant="outline" onClick={() => router.push(`/dashboard/invoices/${id}/edit`)}>Edit</Button>}
+          {invoice.type === "standard" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary">Add Note</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => router.push(`/dashboard/invoices/create/credit?originalInvoiceId=${invoice.id}`)}>Credit Note</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push(`/dashboard/invoices/create/debit?originalInvoiceId=${invoice.id}`)}>Debit Note</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button variant="outline" onClick={() => window.print()}>Download PDF</Button>
         </div>
       </div>
@@ -71,11 +90,20 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       <Card>
         <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Emetteur:</span> {counterparty?.company_name || "N/A"}</div>
+          <div><span className="text-muted-foreground">Émetteur:</span> {issuingOrg?.name || "N/A"}</div>
+          <div><span className="text-muted-foreground">{invoice.direction === "in" ? "Client" : "Fournisseur"}:</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{invoice.type}</Badge></div>
-          <div><span className="text-muted-foreground">Status:</span> <Badge>{invoice.status}</Badge></div>
+          <div><span className="text-muted-foreground">Sale/Purchase:</span> <Badge variant={invoice.direction === "in" ? "default" : "destructive"}>{invoice.direction === "in" ? "Sale" : "Purchase"}</Badge></div>
           <div><span className="text-muted-foreground">Due Date:</span> {invoice.due_date || "N/A"}</div>
           <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(invoice.payment_method)}</div>
+          {originalInvoice && (
+            <div>
+              <span className="text-muted-foreground">Corrects invoice:</span>{" "}
+              <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${originalInvoice.id}`)}>
+                {originalInvoice.number}
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -134,6 +162,40 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
         </CardContent>
       </Card>
+
+      {corrections.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Corrections</CardTitle></CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b"><th className="text-left p-2">Number</th><th className="text-left p-2">Type</th><th className="text-left p-2">Date</th><th className="text-right p-2">TTC</th></tr>
+              </thead>
+              <tbody>
+                {corrections.map((c) => {
+                  const cTotals = castJson<InvoiceTotals>(c.totals)
+                  return (
+                    <tr key={c.id} className="border-b">
+                      <td className="p-2">
+                        <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${c.id}`)}>
+                          {c.number}
+                        </button>
+                      </td>
+                      <td className="p-2"><Badge variant="outline">{c.type}</Badge></td>
+                      <td className="p-2">{c.date}</td>
+                      <td className={`p-2 text-right font-medium ${c.type === "credit" ? "text-red-600" : "text-emerald-600"}`}>
+                        {c.type === "credit" ? "-" : "+"}{formatTND(cTotals.ttc || 0)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      <DocumentAttachments documentType="invoice" documentId={invoice.id} organizationId={invoice.organization_id} />
     </div>
   )
 }

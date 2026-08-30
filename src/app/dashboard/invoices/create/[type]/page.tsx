@@ -1,44 +1,175 @@
 "use client"
 
-import { use, useState, Fragment } from "react"
-import { useRouter } from "next/navigation"
+import { use, useState, useEffect, Fragment } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { usePMESelection } from "@/contexts/pme-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createInvoice, generateInvoiceNumber, computeInvoiceTotals } from "@/lib/supabase/invoices"
+import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, coveredQuantity, getConsignments, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
+import type { ConsignmentCharge } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
-import type { Json, PaymentMethod, TaxCharge } from "@/types/database"
+import type { Json, PaymentMethod, TaxCharge, InvoiceDirection } from "@/types/database"
 
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { selectedOrgId } = usePMESelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
   const { isContactMyPme, isArticleMyPme } = useMyPme()
   const logAction = useActionLog("invoices")
 
+  const invoiceType = type as "standard" | "credit" | "debit"
+  const isAdjustment = invoiceType === "credit" || invoiceType === "debit"
+  // Credit/debit note lines always hold real, positive quantities/amounts
+  // (e.g. "2 units returned" is quantity 2, never -2) — whether a
+  // correction adds or subtracts is decided by invoiceType alone wherever
+  // totals get aggregated or displayed, never by a stored sign.
+  const sourceOrderId = searchParams.get("sourceOrderId")
+  const sourceQuoteId = searchParams.get("sourceQuoteId")
+  const originalInvoiceIdParam = searchParams.get("originalInvoiceId")
+  const flow: "sale" | "purchase" = sourceOrderId ? "purchase" : "sale"
+  const isInferredFlow = Boolean(sourceOrderId || sourceQuoteId || originalInvoiceIdParam)
+
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
-  const [counterpartyId, setCounterpartyId] = useState("")
-  const [invoiceNumber] = useState(generateInvoiceNumber())
+  const [counterpartyId, setCounterpartyId] = useState(searchParams.get("selectedContact") || "")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("")
+  const [flowChoice, setFlowChoice] = useState<"sale" | "purchase">(flow)
+  const [direction, setDirection] = useState<InvoiceDirection>(defaultDirectionFor(flow))
+  const [manualNumber, setManualNumber] = useState("")
+  const [originalInvoiceId, setOriginalInvoiceId] = useState("")
   const [notes, setNotes] = useState("")
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [prefilling, setPrefilling] = useState(isInferredFlow)
+  const [sourceLabel, setSourceLabel] = useState<string | null>(null)
 
-  const invoiceType = type as "standard" | "credit" | "debit"
+  // A purchase-side correction is normally the supplier's own paperwork
+  // (their avoir/debit note, their reference number) arriving the same way
+  // the original purchase invoice did — same rule as standard invoices, no
+  // carve-out for adjustments.
+  const isMoneyOut = direction === "out"
+
+  // Auto-select the issuing organization when there's only one to choose from
+  // (the global PME filter already covers the case where one is pre-selected).
+  useEffect(() => {
+    if (isInferredFlow || organizationId) return
+    if (organizations.length === 1) setOrganizationId(organizations[0].id)
+  }, [organizations, organizationId, isInferredFlow])
+
+  useEffect(() => {
+    async function prefillFromOriginalInvoice() {
+      try {
+        const original = await getInvoice(originalInvoiceIdParam!)
+        if (!original) return
+        const [originalLines, originalConsignments] = await Promise.all([
+          getInvoiceLines(original.id),
+          getConsignments(original.id),
+        ])
+        setOrganizationId(original.organization_id)
+        setCounterpartyId(original.counterparty_id)
+        setOriginalInvoiceId(original.id)
+        setLines(originalLines.map((l) => ({
+          code: l.code,
+          designation: l.designation,
+          unit: l.unit,
+          quantity: l.quantity,
+          unit_price_puht: l.unit_price_puht,
+          transfer_price: 0,
+          tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
+          article_id: l.article_id,
+          // What was actually charged on the original invoice's own line,
+          // not a fresh recompute from the article's config — if the
+          // article's packaging changed since, a correction still needs to
+          // reverse exactly what was originally charged.
+          consignments: originalConsignments
+            .filter((c) => c.source_line_id === l.id)
+            .map((c) => ({ packaging_type: c.packaging_type, units_per_article: c.units_per_article, quantity: c.quantity, deposit_value: c.deposit_value, total: c.total })),
+        })))
+        setDirection(original.direction)
+        setSourceLabel(`invoice ${original.number}`)
+      } catch (err) {
+        console.error(err)
+        alert("Failed to load original invoice")
+      } finally {
+        setPrefilling(false)
+      }
+    }
+    if (originalInvoiceIdParam) prefillFromOriginalInvoice()
+  }, [originalInvoiceIdParam, invoiceType])
+
+  useEffect(() => {
+    async function prefillFromSource() {
+      try {
+        if (sourceOrderId) {
+          const order = await getOrder(sourceOrderId)
+          if (!order) return
+          const orderLines = await getOrderLines(sourceOrderId)
+          setOrganizationId(order.organization_id)
+          setCounterpartyId(order.counterparty_id)
+          setLines(orderLines.map((l) => ({
+            code: l.code,
+            designation: l.designation,
+            unit: l.unit,
+            quantity: l.quantity,
+            unit_price_puht: l.unit_price ?? 0,
+            transfer_price: 0,
+            tax_charges: defaultTaxCharges(),
+            article_id: null,
+            consignments: [],
+          })))
+          setDirection(defaultDirectionFor("purchase"))
+          setSourceLabel(`order ${order.number}`)
+        } else if (sourceQuoteId) {
+          const quote = await getQuote(sourceQuoteId)
+          if (!quote) return
+          const quoteLines = await getQuoteLines(sourceQuoteId)
+          setOrganizationId(quote.organization_id)
+          setCounterpartyId(quote.counterparty_id)
+          setNotes(quote.notes || "")
+          setLines(quoteLines.map((l) => {
+            // Inherit whatever packaging selection was shown/edited on the
+            // quote itself, rather than recomputing blind and losing it —
+            // only fall back to a fresh suggestion if the quote never had one.
+            const quotedConsignments = castJson<ConsignmentCharge[]>(l.consignments)
+            const article = l.article_id ? articles.find((a) => a.id === l.article_id) : null
+            return {
+              code: l.code,
+              designation: l.designation,
+              unit: l.unit,
+              quantity: l.quantity,
+              unit_price_puht: l.unit_price_puht,
+              transfer_price: 0,
+              tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
+              article_id: l.article_id,
+              consignments: quotedConsignments.length > 0 ? quotedConsignments : (article ? consignmentsForLine(article, l.quantity) : []),
+            }
+          }))
+          setDirection(defaultDirectionFor("sale"))
+          setSourceLabel(`quote ${quote.number}`)
+        }
+      } catch (err) {
+        console.error(err)
+        alert("Failed to load source document")
+      } finally {
+        setPrefilling(false)
+      }
+    }
+    if (sourceOrderId || sourceQuoteId) prefillFromSource()
+  }, [sourceOrderId, sourceQuoteId])
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
@@ -47,31 +178,62 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       code: article.code,
       designation: article.designation,
       unit: article.unit,
-      quantity: invoiceType === "credit" ? -1 : 1,
+      quantity: 1,
       unit_price_puht: article.unit_price_puht,
       transfer_price: article.transfer_price,
       tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),
       article_id: article.id,
+      consignments: consignmentsForLine(article, 1),
     }])
   }
 
   const addFreeformLine = () => {
-    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null }])
+    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null, consignments: [] }])
   }
 
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => {
     const updated = [...lines]
     updated[i] = { ...updated[i], ...patch }
+    // Changing quantity re-suggests the packaging selection from scratch —
+    // any manual tweak to it is for the quantity that was there before.
+    if (patch.quantity !== undefined) {
+      const article = updated[i].article_id ? articles.find((a) => a.id === updated[i].article_id) : null
+      updated[i].consignments = article ? consignmentsForLine(article, patch.quantity) : []
+    }
     setLines(updated)
   }
 
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i))
 
+  const addConsignmentLine = (lineIndex: number) => {
+    const updated = [...lines]
+    updated[lineIndex].consignments = [...updated[lineIndex].consignments, { packaging_type: "", units_per_article: 1, quantity: 1, deposit_value: 0, total: 0 }]
+    setLines(updated)
+  }
+
+  const updateConsignmentLine = (lineIndex: number, pkgIndex: number, patch: Partial<ConsignmentCharge>) => {
+    const updated = [...lines]
+    const consignments = [...updated[lineIndex].consignments]
+    const merged = { ...consignments[pkgIndex], ...patch }
+    merged.total = merged.quantity * merged.deposit_value
+    consignments[pkgIndex] = merged
+    updated[lineIndex] = { ...updated[lineIndex], consignments }
+    setLines(updated)
+  }
+
+  const removeConsignmentLine = (lineIndex: number, pkgIndex: number) => {
+    const updated = [...lines]
+    updated[lineIndex] = { ...updated[lineIndex], consignments: updated[lineIndex].consignments.filter((_, idx) => idx !== pkgIndex) }
+    setLines(updated)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!organizationId) { alert("Select a PME"); return }
+    if (!organizationId) { alert("Select an issuing organization"); return }
     if (!counterpartyId) { alert("Select a counterparty"); return }
     if (lines.length === 0) { alert("Add at least one line"); return }
+    if (isAdjustment && !originalInvoiceId) { alert("Select the original invoice"); return }
+    if (isMoneyOut && !manualNumber.trim()) { alert("Enter the supplier's invoice number"); return }
 
     setLoading(true)
     try {
@@ -85,27 +247,36 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         remise_percent: 0,
         tax_charges: l.tax_charges as unknown as Json,
         transfer_price: l.transfer_price,
+        consignments: l.consignments,
       }))
 
+      const numberPrefix = invoiceType === "credit" ? "CN" : invoiceType === "debit" ? "DN" : "I"
+      // A money-out invoice records what the supplier issued to us — their
+      // number, not ours to generate.
+      const number = isMoneyOut ? manualNumber.trim() : await getNextDocumentNumber(organizationId, numberPrefix)
       const invoice = await createInvoice(
         {
-          number: invoiceNumber,
+          number,
           date,
           due_date: dueDate || null,
           organization_id: organizationId,
           counterparty_kind: "contact",
           counterparty_id: counterpartyId,
           type: invoiceType,
-          status: "draft",
+          direction,
           payment_method: paymentMethod || null,
-          references: {} as Json,
+          source_order_id: sourceOrderId || null,
+          source_quote_id: sourceQuoteId || null,
+          source_delivery_id: null,
+          original_invoice_id: isAdjustment ? (originalInvoiceId || null) : null,
           notes: notes || null,
         },
-        invoiceLines,
-        [] // TODO: auto-generate consignments
+        invoiceLines
       )
+      if (sourceOrderId) await markOrderFinal(sourceOrderId)
+      if (sourceQuoteId) await markQuoteAccepted(sourceQuoteId)
       await logAction(`Created ${invoiceType} invoice ${invoice.number}`, invoice.id, organizationId)
-      router.push("/dashboard/invoices")
+      router.push(`/dashboard/invoices/${invoice.id}`)
     } catch (err) {
       console.error(err)
       alert("Failed to create invoice")
@@ -115,53 +286,96 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   }
 
   const filteredContacts = sortMyPmeFirst(
-    contacts.filter((c) => (invoiceType === "standard" ? c.party_type !== "supplier" : true)),
+    contacts.filter((c) =>
+      c.internal_organization_id !== organizationId &&
+      (invoiceType === "standard" && !sourceOrderId ? c.party_type !== "supplier" : true)
+    ),
     isContactMyPme
   )
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
 
   const totals = computeInvoiceTotals(lines)
 
+  if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
+
+  const pageTitle = sourceLabel
+    ? isAdjustment
+      ? `${invoiceType === "credit" ? "Add Credit Note" : "Add Debit Note"} — from ${sourceLabel}`
+      : `Confirm Invoice — from ${sourceLabel}`
+    : `Create ${type} Invoice`
+
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Create {type} Invoice</h1>
+      <h1 className="text-2xl font-bold">{pageTitle}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader><CardTitle>Header</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {isAdjustment && originalInvoiceIdParam && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Correcting invoice:</span>{" "}
+                <button type="button" className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${originalInvoiceIdParam}`)}>
+                  {sourceLabel ? sourceLabel.replace(/^invoice /, "") : "…"}
+                </button>
+              </div>
+            )}
+            {/* Org and counterparty are locked (not just prefilled) for a credit/debit
+                note — they're inherited from the invoice being corrected, and letting
+                someone repoint a correction at a different org/customer than its
+                original would break the relationship the whole document exists for. */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>PME *</Label>
-                <Select value={organizationId} onValueChange={setOrganizationId}>
-                  <SelectTrigger><SelectValue placeholder="Select PME" /></SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Issuing Organization *</Label>
+                {isAdjustment ? (
+                  <div className="text-sm py-2">{organizations.find((o) => o.id === organizationId)?.name || "—"}</div>
+                ) : (
+                  <Select value={organizationId} onValueChange={setOrganizationId}>
+                    <SelectTrigger><SelectValue placeholder="Select issuing organization" /></SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label>Counterparty *</Label>
-                <Select value={counterpartyId} onValueChange={setCounterpartyId}>
-                  <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
-                  <SelectContent>
-                    {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
-                        {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Button type="button" variant="outline" onClick={() => router.push("/dashboard/contacts/add")}>+ New Contact</Button>
+                {isAdjustment ? (
+                  <div className="text-sm py-2">{contacts.find((c) => c.id === counterpartyId)?.company_name || "—"}</div>
+                ) : (
+                  <Select
+                    value={counterpartyId}
+                    onValueChange={(v) => {
+                      if (v === "__new__") { router.push("/dashboard/contacts/add"); return }
+                      setCounterpartyId(v)
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__new__">+ New Contact</SelectItem>
+                      <SelectSeparator />
+                      {filteredContacts.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                          {c.company_name}
+                          {isContactMyPme(c) && <PmeBadge />}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2"><Label>Number</Label><Input value={invoiceNumber} readOnly /></div>
+              <div className="grid gap-2">
+                <Label>Number{isMoneyOut ? " *" : ""}</Label>
+                {isMoneyOut ? (
+                  <Input value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} placeholder="Supplier's invoice number" />
+                ) : (
+                  <div className="text-sm text-muted-foreground py-2">Auto-generated on save</div>
+                )}
+              </div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
               <div className="grid gap-2"><Label>Due Date</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
             </div>
@@ -177,6 +391,18 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                   </SelectContent>
                 </Select>
               </div>
+              {!isInferredFlow && (
+                <div className="grid gap-2">
+                  <Label>Sale or Purchase *</Label>
+                  <Select value={flowChoice} onValueChange={(v) => { const f = v as "sale" | "purchase"; setFlowChoice(f); setDirection(defaultDirectionFor(f)) }}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sale">Sale</SelectItem>
+                      <SelectItem value="purchase">Purchase</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -229,7 +455,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                             {formatTaxCharges(line.tax_charges)}
                           </Button>
                         </td>
-                        <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td>
+                        <td className="p-1 whitespace-nowrap">
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addConsignmentLine(i)} title="Add a packaging deposit for this line">+ Deposit</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button>
+                        </td>
                       </tr>
                       {expandedLine === i && (
                         <tr className="border-b bg-muted/30">
@@ -245,6 +474,43 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             )}
           </CardContent>
         </Card>
+
+        {lines.some((l) => l.consignments.length > 0) && (
+          <Card>
+            <CardHeader><CardTitle>Consignments</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {lines.map((line, i) => {
+                if (line.consignments.length === 0) return null
+                const covered = coveredQuantity(line.consignments)
+                return (
+                  <div key={i} className="space-y-2">
+                    <div className="text-sm font-medium">{line.designation || "Line"} <span className="text-muted-foreground font-normal">(qty {line.quantity})</span></div>
+                    {covered < line.quantity && (
+                      <div className="text-sm text-amber-600">⚠ Selected packaging covers {covered} of {line.quantity} units ordered.</div>
+                    )}
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                        {line.consignments.map((c, j) => (
+                          <tr key={j} className="border-b">
+                            <td className="p-1"><Input value={c.packaging_type} onChange={(e) => updateConsignmentLine(i, j, { packaging_type: e.target.value })} className="h-8" /></td>
+                            <td className="p-1"><Input type="number" value={c.units_per_article} onChange={(e) => updateConsignmentLine(i, j, { units_per_article: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
+                            <td className="p-1"><Input type="number" value={c.quantity} onChange={(e) => updateConsignmentLine(i, j, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
+                            <td className="p-1"><Input type="number" step="0.01" value={c.deposit_value} onChange={(e) => updateConsignmentLine(i, j, { deposit_value: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
+                            <td className="p-2 text-right">{c.total.toFixed(2)} TND</td>
+                            <td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeConsignmentLine(i, j)}>X</Button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>

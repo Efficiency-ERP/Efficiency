@@ -1,0 +1,187 @@
+"use client"
+
+import { use, useState, useEffect } from "react"
+import { useContactsStore } from "@/contexts/contacts-store"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { formatTND, castJson } from "@/lib/utils"
+import { formatTaxCharges } from "@/components/tax-charges-editor"
+import { getQuote, getQuoteLines, getInvoiceBySourceQuote, getDeliveriesBySourceQuote } from "@/lib/supabase/invoices"
+import type { ConsignmentCharge } from "@/lib/supabase/invoices"
+import type { Invoice, Quote, QuoteLine, Delivery, InvoiceTotals, TaxCharge } from "@/types/database"
+
+export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const router = useRouter()
+  const { contacts } = useContactsStore()
+  const [quote, setQuote] = useState<Quote | null>(null)
+  const [lines, setLines] = useState<QuoteLine[]>([])
+  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | null>(null)
+  const [deliveries, setDeliveries] = useState<Delivery[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const q = await getQuote(id)
+        setQuote(q)
+        if (q) {
+          const [lns, inv, dels] = await Promise.all([getQuoteLines(q.id), getInvoiceBySourceQuote(q.id), getDeliveriesBySourceQuote(q.id)])
+          setLines(lns)
+          setLinkedInvoice(inv)
+          setDeliveries(dels)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [id])
+
+  const counterparty = quote ? contacts.find((c) => c.id === quote.counterparty_id) : null
+
+  if (loading) return <div className="text-muted-foreground">Loading...</div>
+
+  if (!quote) return (
+    <div className="flex flex-col items-center justify-center gap-4 py-12">
+      <h2 className="text-xl font-bold">Quote not found</h2>
+      <Button variant="outline" onClick={() => router.push("/dashboard/quotes")}>Back to quotes</Button>
+    </div>
+  )
+
+  const totals = castJson<InvoiceTotals>(quote.totals)
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{quote.number}</h1>
+          <p className="text-muted-foreground">{quote.date}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => router.push(`/dashboard/deliveries/create?sourceQuoteId=${quote.id}`)}>
+            Create Delivery
+          </Button>
+          {!linkedInvoice && (
+            <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceQuoteId=${quote.id}`)}>
+              Validate → Create Invoice
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Header</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4 text-sm">
+          <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
+          <div><span className="text-muted-foreground">Status:</span> <Badge>{quote.status}</Badge></div>
+          {linkedInvoice && (
+            <div>
+              <span className="text-muted-foreground">Invoice:</span>{" "}
+              <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${linkedInvoice.id}`)}>
+                View invoice
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Lines</CardTitle></CardHeader>
+        <CardContent>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Designation</th><th className="text-right p-2">Qty</th><th className="text-left p-2">Unit</th><th className="text-right p-2">PUHT</th><th className="text-left p-2">Taxes</th></tr>
+            </thead>
+            <tbody>
+              {lines.map((line) => (
+                <tr key={line.id} className="border-b">
+                  <td className="p-2">{line.code}</td>
+                  <td className="p-2">{line.designation}</td>
+                  <td className="p-2 text-right">{line.quantity}</td>
+                  <td className="p-2">{line.unit || "-"}</td>
+                  <td className="p-2 text-right">{line.unit_price_puht}</td>
+                  <td className="p-2">{formatTaxCharges(castJson<TaxCharge[]>(line.tax_charges))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex justify-between"><span>HT Subtotal:</span><span>{formatTND(totals.htSubtotal || 0)}</span></div>
+          {Object.entries(totals.chargesByKey || {}).map(([key, amount]) => (
+            <div key={key} className="flex justify-between"><span>{key}:</span><span>{formatTND(amount)}</span></div>
+          ))}
+          <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
+        </CardContent>
+      </Card>
+
+      {lines.some((l) => castJson<ConsignmentCharge[]>(l.consignments).length > 0) && (
+        <Card>
+          <CardHeader><CardTitle>Consignments (estimate)</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {lines.map((line) => {
+              const consignments = castJson<ConsignmentCharge[]>(line.consignments)
+              if (consignments.length === 0) return null
+              return (
+                <div key={line.id} className="space-y-2">
+                  <div className="text-sm font-medium">{line.designation}</div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th></tr>
+                    </thead>
+                    <tbody>
+                      {consignments.map((c, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="p-2">{c.packaging_type}</td>
+                          <td className="p-2 text-right">{c.units_per_article}</td>
+                          <td className="p-2 text-right">{c.quantity}</td>
+                          <td className="p-2 text-right">{formatTND(c.deposit_value)}</td>
+                          <td className="p-2 text-right">{formatTND(c.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {deliveries.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Deliveries</CardTitle></CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b"><th className="text-left p-2">Number</th><th className="text-left p-2">Date</th></tr>
+              </thead>
+              <tbody>
+                {deliveries.map((d) => (
+                  <tr key={d.id} className="border-b">
+                    <td className="p-2">
+                      <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/deliveries/${d.id}`)}>
+                        {d.number}
+                      </button>
+                    </td>
+                    <td className="p-2">{d.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}

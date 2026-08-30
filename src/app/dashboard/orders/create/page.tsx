@@ -7,7 +7,7 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createOrder, generateOrderNumber } from "@/lib/supabase/invoices"
+import { createOrder, getNextDocumentNumber } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,6 @@ export default function CreateOrderPage() {
   const logAction = useActionLog("orders")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
-  const [orderNumber] = useState(generateOrderNumber())
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price: number | null }>>([])
   const [loading, setLoading] = useState(false)
@@ -47,7 +46,7 @@ export default function CreateOrderPage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      const order = await createOrder({ number: orderNumber, date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft" }, lines)
+      const order = await createOrder({ number: await getNextDocumentNumber(organizationId, "O"), date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft" }, lines)
       await logAction(`Created ${orderType} order ${order.number}`, order.id, organizationId)
       router.push("/dashboard/orders")
     } catch { alert("Failed to create order") } finally { setLoading(false) }
@@ -94,7 +93,7 @@ export default function CreateOrderPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>Number</Label><Input value={orderNumber} readOnly /></div>
+              <div className="grid gap-2"><Label>Number</Label><Input value="Auto-generated on save" readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             </div>
           </CardContent>

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { getIssues } from "@/lib/supabase/invoices"
+import { SectionTabs } from "@/components/section-tabs"
+import { ARTICLES_TABS } from "@/lib/section-tabs-config"
 import type { Issue } from "@/types/database"
 
 export default function IssuesListPage() {
@@ -48,6 +50,7 @@ export default function IssuesListPage() {
 
   return (
     <div className="space-y-4">
+      <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Issues</h1>
         <Button onClick={() => router.push("/dashboard/issues/create")}>Create Issue</Button>

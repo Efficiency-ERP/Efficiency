@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { getOrder, getOrderLines } from "@/lib/supabase/invoices"
-import type { Order, OrderLine } from "@/types/database"
+import { getOrder, getOrderLines, getInvoiceBySourceOrder } from "@/lib/supabase/invoices"
+import { DocumentAttachments } from "@/components/document-attachments"
+import type { Invoice, Order, OrderLine } from "@/types/database"
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -15,6 +16,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { contacts } = useContactsStore()
   const [order, setOrder] = useState<Order | null>(null)
   const [lines, setLines] = useState<OrderLine[]>([])
+  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,8 +25,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         const o = await getOrder(id)
         setOrder(o)
         if (o) {
-          const lns = await getOrderLines(o.id)
+          const [lns, inv] = await Promise.all([getOrderLines(o.id), getInvoiceBySourceOrder(o.id)])
           setLines(lns)
+          setLinkedInvoice(inv)
         }
       } catch (err) {
         console.error(err)
@@ -53,7 +56,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <h1 className="text-2xl font-bold">{order.number}</h1>
           <p className="text-muted-foreground">{order.date}</p>
         </div>
-        <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        <div className="flex gap-2">
+          {!linkedInvoice && (
+            <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceOrderId=${order.id}`)}>
+              Confirm Invoice
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        </div>
       </div>
 
       <Card>
@@ -62,6 +72,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{order.type}</Badge></div>
           <div><span className="text-muted-foreground">Status:</span> <Badge>{order.status}</Badge></div>
+          {linkedInvoice && (
+            <div>
+              <span className="text-muted-foreground">Invoice:</span>{" "}
+              <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${linkedInvoice.id}`)}>
+                View invoice
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -95,6 +113,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </table>
         </CardContent>
       </Card>
+
+      <DocumentAttachments documentType="order" documentId={order.id} organizationId={order.organization_id} />
     </div>
   )
 }
