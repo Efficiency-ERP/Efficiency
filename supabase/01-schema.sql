@@ -46,8 +46,18 @@ end $$;
 -- TABLES
 -- ============================================
 
+-- A tenant is the account-level owner of one or more organizations. Joining
+-- a tenant (via user_tenants) grants access to every org under it,
+-- including ones added later — no per-org membership row needed.
+create table if not exists tenants (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null,
+  created_at timestamptz default now()
+);
+
 create table if not exists organizations (
   id uuid primary key default uuid_generate_v4(),
+  tenant_id uuid not null references tenants(id),
   name text not null,
   mf text,
   unique_id text,
@@ -305,10 +315,11 @@ create table if not exists profiles (
   created_at timestamptz default now()
 );
 
-create table if not exists user_organizations (
+create table if not exists user_tenants (
   user_id uuid not null references auth.users(id) on delete cascade,
-  organization_id uuid not null references organizations(id) on delete cascade,
-  primary key (user_id, organization_id)
+  tenant_id uuid not null references tenants(id) on delete cascade,
+  role text not null default 'member' check (role in ('admin', 'member')),
+  primary key (user_id, tenant_id)
 );
 
 create table if not exists logs (

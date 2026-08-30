@@ -29,9 +29,26 @@ export interface TaxCharge {
 export interface Database {
   public: {
     Tables: {
+      tenants: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+      }
       organizations: {
         Row: {
           id: string
+          tenant_id: string
           name: string
           mf: string | null
           unique_id: string | null
@@ -42,6 +59,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          tenant_id: string
           name: string
           mf?: string | null
           unique_id?: string | null
@@ -52,6 +70,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          tenant_id?: string
           name?: string
           mf?: string | null
           unique_id?: string | null
@@ -572,18 +591,21 @@ export interface Database {
           avatar_url?: string | null
         }
       }
-      user_organizations: {
+      user_tenants: {
         Row: {
           user_id: string
-          organization_id: string
+          tenant_id: string
+          role: string
         }
         Insert: {
           user_id: string
-          organization_id: string
+          tenant_id: string
+          role?: string
         }
         Update: {
           user_id?: string
-          organization_id?: string
+          tenant_id?: string
+          role?: string
         }
       }
       logs: {
@@ -659,6 +681,7 @@ export type StockMovementDirection = "in" | "out"
 export type StockMovementSourceType = "delivery"
 
 // Convenience types
+export type Tenant = Database["public"]["Tables"]["tenants"]["Row"]
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"]
 export type Contact = Database["public"]["Tables"]["contacts"]["Row"]
 export type Article = Database["public"]["Tables"]["articles"]["Row"]
@@ -685,7 +708,7 @@ export type OrderLine = Database["public"]["Tables"]["order_lines"]["Row"]
 export type Issue = Database["public"]["Tables"]["issues"]["Row"]
 export type IssueLine = Database["public"]["Tables"]["issue_lines"]["Row"]
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
-export type UserOrganization = Database["public"]["Tables"]["user_organizations"]["Row"]
+export type UserTenant = Database["public"]["Tables"]["user_tenants"]["Row"]
 export type Log = Database["public"]["Tables"]["logs"]["Row"]
 export type StockMovement = Database["public"]["Tables"]["stock_movements"]["Row"]
 
