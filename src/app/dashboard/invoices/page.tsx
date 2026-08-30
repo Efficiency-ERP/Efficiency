@@ -7,25 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
-import { getInvoices } from "@/lib/supabase/invoices"
+import { getInvoices, correctionSign, netCashFlow } from "@/lib/supabase/invoices"
 import type { Invoice, InvoiceTotals } from "@/types/database"
 
 export default function AllInvoicesPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { selectedOrgId } = usePMESelection()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [directionFilter, setDirectionFilter] = useState<string>("all")
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const direction = searchParams.get("direction")
-    if (direction) setDirectionFilter(direction)
-  }, [searchParams])
 
   useEffect(() => {
     async function load() {
@@ -49,14 +42,13 @@ export default function AllInvoicesPage() {
         if (!inv.number.toLowerCase().includes(q)) return false
       }
       if (typeFilter !== "all" && inv.type !== typeFilter) return false
-      if (directionFilter !== "all" && inv.direction !== directionFilter) return false
       return true
     })
-  }, [invoices, search, typeFilter, directionFilter])
+  }, [invoices, search, typeFilter])
 
   const totalCount = invoices.length
-  const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
-  const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
+  const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + correctionSign(i.type) * ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
+  const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + correctionSign(i.type) * ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
 
   if (loading) return <div className="text-muted-foreground">Loading invoices...</div>
 
@@ -64,7 +56,9 @@ export default function AllInvoicesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoices</h1>
-        <Button onClick={() => router.push("/dashboard/invoices/create")}>Create Invoice</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => router.push("/dashboard/invoices/create")}>Create Invoice</Button>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{totalCount}</CardContent></Card>
@@ -87,14 +81,6 @@ export default function AllInvoicesPage() {
             <SelectItem value="debit">Debit</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={directionFilter} onValueChange={setDirectionFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Directions</SelectItem>
-            <SelectItem value="in">Money In</SelectItem>
-            <SelectItem value="out">Money Out</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -103,16 +89,15 @@ export default function AllInvoicesPage() {
               <th className="text-left p-3">Number</th>
               <th className="text-left p-3">Date</th>
               <th className="text-left p-3">Type</th>
-              <th className="text-left p-3">Direction</th>
-              <th className="text-right p-3">TTC</th>
+              <th className="text-right p-3">Cash Flow</th>
               <th className="text-right p-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredInvoices.length === 0 ? (
-              <tr><td colSpan={6} className="text-center p-8 text-muted-foreground">No invoices found</td></tr>
+              <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">No invoices found</td></tr>
             ) : filteredInvoices.map((inv) => {
-              const totals = castJson<InvoiceTotals>(inv.totals)
+              const flow = netCashFlow(inv)
               return (
                 <tr key={inv.id} className="border-b hover:bg-muted/30">
                   <td className="p-3">
@@ -122,8 +107,9 @@ export default function AllInvoicesPage() {
                   </td>
                   <td className="p-3">{inv.date}</td>
                   <td className="p-3"><Badge variant="outline">{inv.type}</Badge></td>
-                  <td className="p-3"><Badge variant={inv.direction === "in" ? "default" : "destructive"}>{inv.direction === "in" ? "In" : "Out"}</Badge></td>
-                  <td className="p-3 text-right">{formatTND(totals.ttc || 0)}</td>
+                  <td className={`p-3 text-right font-medium ${flow >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {flow >= 0 ? "+" : ""}{formatTND(flow)}
+                  </td>
                   <td className="p-3 text-right">
                     <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>View</Button>
                   </td>

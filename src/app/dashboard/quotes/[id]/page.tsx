@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
-import { getQuote, getQuoteLines, validateQuote } from "@/lib/supabase/invoices"
-import type { Quote, QuoteLine, InvoiceTotals, TaxCharge } from "@/types/database"
+import { getQuote, getQuoteLines, getInvoiceBySourceQuote, getDeliveriesBySourceQuote } from "@/lib/supabase/invoices"
+import type { ConsignmentCharge } from "@/lib/supabase/invoices"
+import type { Invoice, Quote, QuoteLine, Delivery, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -17,15 +18,21 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const { contacts } = useContactsStore()
   const [quote, setQuote] = useState<Quote | null>(null)
   const [lines, setLines] = useState<QuoteLine[]>([])
+  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | null>(null)
+  const [deliveries, setDeliveries] = useState<Delivery[]>([])
   const [loading, setLoading] = useState(true)
-  const [validating, setValidating] = useState(false)
 
   useEffect(() => {
     async function load() {
       try {
         const q = await getQuote(id)
         setQuote(q)
-        if (q) setLines(await getQuoteLines(q.id))
+        if (q) {
+          const [lns, inv, dels] = await Promise.all([getQuoteLines(q.id), getInvoiceBySourceQuote(q.id), getDeliveriesBySourceQuote(q.id)])
+          setLines(lns)
+          setLinkedInvoice(inv)
+          setDeliveries(dels)
+        }
       } catch (err) {
         console.error(err)
       } finally {
@@ -34,20 +41,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     }
     load()
   }, [id])
-
-  const handleValidate = async () => {
-    if (!quote) return
-    setValidating(true)
-    try {
-      const invoice = await validateQuote(quote.id)
-      router.push(`/dashboard/invoices/${invoice.id}`)
-    } catch (err) {
-      console.error(err)
-      alert("Failed to validate quote")
-    } finally {
-      setValidating(false)
-    }
-  }
 
   const counterparty = quote ? contacts.find((c) => c.id === quote.counterparty_id) : null
 
@@ -70,9 +63,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-muted-foreground">{quote.date}</p>
         </div>
         <div className="flex gap-2">
-          {quote.status !== "accepted" && (
-            <Button onClick={handleValidate} disabled={validating}>
-              {validating ? "Validating..." : "Validate → Create Invoice"}
+          <Button variant="secondary" onClick={() => router.push(`/dashboard/deliveries/create?sourceQuoteId=${quote.id}`)}>
+            Create Delivery
+          </Button>
+          {!linkedInvoice && (
+            <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceQuoteId=${quote.id}`)}>
+              Validate → Create Invoice
             </Button>
           )}
           <Button variant="outline" onClick={() => router.back()}>Back</Button>
@@ -84,6 +80,14 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Status:</span> <Badge>{quote.status}</Badge></div>
+          {linkedInvoice && (
+            <div>
+              <span className="text-muted-foreground">Invoice:</span>{" "}
+              <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${linkedInvoice.id}`)}>
+                View invoice
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -120,6 +124,64 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
         </CardContent>
       </Card>
+
+      {lines.some((l) => castJson<ConsignmentCharge[]>(l.consignments).length > 0) && (
+        <Card>
+          <CardHeader><CardTitle>Consignments (estimate)</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {lines.map((line) => {
+              const consignments = castJson<ConsignmentCharge[]>(line.consignments)
+              if (consignments.length === 0) return null
+              return (
+                <div key={line.id} className="space-y-2">
+                  <div className="text-sm font-medium">{line.designation}</div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th></tr>
+                    </thead>
+                    <tbody>
+                      {consignments.map((c, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="p-2">{c.packaging_type}</td>
+                          <td className="p-2 text-right">{c.units_per_article}</td>
+                          <td className="p-2 text-right">{c.quantity}</td>
+                          <td className="p-2 text-right">{formatTND(c.deposit_value)}</td>
+                          <td className="p-2 text-right">{formatTND(c.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {deliveries.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Deliveries</CardTitle></CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b"><th className="text-left p-2">Number</th><th className="text-left p-2">Date</th></tr>
+              </thead>
+              <tbody>
+                {deliveries.map((d) => (
+                  <tr key={d.id} className="border-b">
+                    <td className="p-2">
+                      <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/deliveries/${d.id}`)}>
+                        {d.number}
+                      </button>
+                    </td>
+                    <td className="p-2">{d.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

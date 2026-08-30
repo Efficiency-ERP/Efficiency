@@ -46,7 +46,7 @@ export default function CreateOrderPage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      const order = await createOrder({ number: await getNextDocumentNumber(organizationId, "O"), date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft", source_invoice_id: null }, lines)
+      const order = await createOrder({ number: await getNextDocumentNumber(organizationId, "O"), date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft" }, lines)
       await logAction(`Created ${orderType} order ${order.number}`, order.id, organizationId)
       router.push("/dashboard/orders")
     } catch { alert("Failed to create order") } finally { setLoading(false) }

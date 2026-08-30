@@ -7,8 +7,8 @@
 -- (and their line tables), stock movements, document
 -- counters, and the enums tied to them.
 --
--- Does NOT touch: organizations, contacts, articles,
--- profiles, user_organizations, logs, or the feedback
+-- Does NOT touch: tenants, organizations, contacts, articles,
+-- profiles, user_tenants, logs, or the feedback
 -- tables — those aren't part of the document model.
 -- ============================================
 

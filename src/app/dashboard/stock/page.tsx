@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import type { StockMovement, Delivery } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
+import { SectionTabs } from "@/components/section-tabs"
+import { ARTICLES_TABS } from "@/lib/section-tabs-config"
 
 const SOURCE_ROUTES: Record<string, string> = {
   delivery: "/dashboard/deliveries",
@@ -119,6 +121,7 @@ export default function StockMovementsPage() {
 
   return (
     <div className="space-y-4">
+      <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Stock Movements</h1>
       </div>

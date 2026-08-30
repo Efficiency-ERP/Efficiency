@@ -9,18 +9,13 @@ import { usePMESelection } from "@/contexts/pme-context"
 import { formatTND, castJson, withTimeout } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import SalesBarChart from "@/components/SalesBarChart"
-import { getInvoices } from "@/lib/supabase/invoices"
+import { getInvoices, correctionSign, netCashFlow } from "@/lib/supabase/invoices"
 import { getOrders } from "@/lib/supabase/invoices"
 import { getDeliveries } from "@/lib/supabase/invoices"
 import { getIssues } from "@/lib/supabase/invoices"
 import type { Stock, InvoiceTotals, Invoice, Order, Delivery, Issue } from "@/types/database"
 
 type Range = "7" | "30" | "90" | "ytd"
-
-function signedTtc(inv: Invoice): number {
-  const ttc = castJson<InvoiceTotals>(inv.totals).ttc || 0
-  return inv.direction === "out" ? -ttc : ttc
-}
 
 function getRangeStartDate(range: Range): Date {
   const now = new Date()
@@ -82,13 +77,13 @@ export default function DashboardHome() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart)
-      .reduce((s, inv) => s + signedTtc(inv), 0)
+      .reduce((s, inv) => s + netCashFlow(inv), 0)
   }, [filteredInvoices, now])
 
   const revenueToday = useMemo(() =>
     filteredInvoices
       .filter((inv) => inv.date === todayStr)
-      .reduce((s, inv) => s + signedTtc(inv), 0),
+      .reduce((s, inv) => s + netCashFlow(inv), 0),
     [filteredInvoices, todayStr]
   )
 
@@ -96,14 +91,14 @@ export default function DashboardHome() {
     const ytdStart = new Date(now.getFullYear(), 0, 1)
     return allInvoices
       .filter((inv) => new Date(inv.date) >= ytdStart)
-      .reduce((s, inv) => s + signedTtc(inv), 0)
+      .reduce((s, inv) => s + netCashFlow(inv), 0)
   }, [allInvoices, now])
 
   const moneyOutMTD = useMemo(() => {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart && inv.direction === "out")
-      .reduce((s, inv) => s + (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
+      .reduce((s, inv) => s + correctionSign(inv.type) * (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
   }, [filteredInvoices, now])
 
   const inCount = filteredInvoices.filter((i) => i.direction === "in").length
@@ -113,7 +108,7 @@ export default function DashboardHome() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart)
-      .reduce((s, inv) => s + Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
+      .reduce((s, inv) => s + correctionSign(inv.type) * Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
   }, [filteredInvoices, now])
 
   const chartData = useMemo(() => {
@@ -127,7 +122,7 @@ export default function DashboardHome() {
           const d = new Date(inv.date)
           return d >= monthStart && d <= monthEnd
         })
-        .reduce((s, inv) => s + signedTtc(inv), 0)
+        .reduce((s, inv) => s + netCashFlow(inv), 0)
       return { label, value }
     })
   }, [allInvoices, now])
@@ -319,8 +314,6 @@ export default function DashboardHome() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => router.push("/dashboard/quotes/create")}>Create Quote</Button>
-            <Button size="sm" variant="secondary" onClick={() => router.push("/dashboard/invoices/create/credit")}>Create Credit</Button>
-            <Button size="sm" variant="secondary" onClick={() => router.push("/dashboard/invoices/create/debit")}>Create Debit</Button>
             <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/deliveries/create")}>Create Delivery</Button>
             <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/issues/create")}>Create Issue</Button>
             <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/orders/create?type=supplier")}>Create Supplier Order</Button>
