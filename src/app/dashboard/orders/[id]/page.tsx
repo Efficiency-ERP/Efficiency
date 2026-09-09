@@ -70,7 +70,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <CardHeader><CardTitle>Header</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
-          <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{order.type}</Badge></div>
+          <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{order.subtype}</Badge></div>
           <div><span className="text-muted-foreground">Status:</span> <Badge>{order.status}</Badge></div>
           {linkedInvoice && (
             <div>
@@ -103,7 +103,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <td className="p-2">{line.designation}</td>
                   <td className="p-2 text-right">{line.quantity}</td>
                   <td className="p-2">{line.unit || "-"}</td>
-                  <td className="p-2 text-right">{line.unit_price ?? "-"}</td>
+                  <td className="p-2 text-right">{line.unit_price_excl_tax ?? "-"}</td>
                 </tr>
               ))}
               {lines.length === 0 && (

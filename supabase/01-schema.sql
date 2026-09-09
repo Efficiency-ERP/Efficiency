@@ -17,28 +17,11 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
-do $$ begin
-  create type invoice_type as enum ('standard', 'credit', 'debit');
-exception when duplicate_object then null;
-end $$;
-
-do $$ begin
-  create type counterparty_kind as enum ('contact', 'organization');
-exception when duplicate_object then null;
-end $$;
-
-do $$ begin
-  create type order_type as enum ('supplier', 'interco', 'customer');
-exception when duplicate_object then null;
-end $$;
-
+-- Only issues (goods-issue) still uses this — quote/invoice/delivery/order
+-- status values now live as plain text on documents, constrained per-kind
+-- by documents_status_check rather than a shared enum.
 do $$ begin
   create type document_status as enum ('draft', 'final');
-exception when duplicate_object then null;
-end $$;
-
-do $$ begin
-  create type quote_status as enum ('draft', 'sent', 'accepted', 'rejected');
 exception when duplicate_object then null;
 end $$;
 
@@ -102,93 +85,89 @@ create table if not exists articles (
   created_at timestamptz default now()
 );
 
--- Quotes (devis) are the editable, pre-money document in the sales flow.
--- Validating a quote creates an immutable Invoice — see invoices below.
-create table if not exists quotes (
-  id uuid primary key default uuid_generate_v4(),
-  number text not null,
-  date date not null default current_date,
-  organization_id uuid not null references organizations(id) on delete restrict,
-  counterparty_id uuid not null references contacts(id) on delete restrict,
-  status quote_status not null default 'draft',
-  totals jsonb default '{"htSubtotal": 0, "chargesByKey": {}, "ttc": 0}'::jsonb,
-  notes text,
-  created_at timestamptz default now(),
-  unique (organization_id, number)
-);
-
-create table if not exists quote_lines (
-  id uuid primary key default uuid_generate_v4(),
-  quote_id uuid not null references quotes(id) on delete cascade,
-  article_id uuid references articles(id) on delete set null,
-  code text not null,
-  designation text not null,
-  unit text,
-  quantity numeric(12,2) not null default 1,
-  unit_price_puht numeric(12,2) not null default 0,
-  remise_percent numeric(5,2) default 0,
-  tax_charges jsonb not null default '[]'::jsonb,
-  -- An estimate to show the customer on the quote itself — a quote never
-  -- creates real consignment_lines rows (nothing's been charged yet), so
-  -- this is the only place a quote's packaging selection is remembered.
-  consignments jsonb not null default '[]'::jsonb
-);
-
--- Invoices are immutable once created (see forbid_invoice_mutation trigger
--- below) and sequentially numbered — no status field: a wrong invoice is
--- corrected with a credit/debit note (type + original_invoice_id), not
--- edited. direction records whether this invoice is money in or out; it
--- defaults from the flow that created it (sale vs purchase) but can be
--- overridden per-invoice for edge cases (interco, refunds).
+-- A tenant of quote/invoice/delivery/order — the four steps that are all
+-- on the way to money, all counterparty-driven, all linked via the same
+-- backward-FK chain (source_document_id, self-referential — replaces the
+-- old source_quote_id/source_order_id/source_delivery_id/
+-- original_invoice_id). Every row keeps the identity of what it was
+-- before the merge; only the container changed.
 --
--- Every invoice that was confirmed from an upstream document carries a
--- backward FK to it (source_order_id / source_quote_id / source_delivery_id)
--- — never the reverse. This is the one rule for "was X converted downstream":
--- always a nullable FK on the later document, never a forward pointer stored
--- on the earlier one (which would wrongly cap it at a single invoice) and
--- never a bolted-on status flag standing in for the link.
-create table if not exists invoices (
+-- Invoices are immutable once created (see documents_no_update_invoice
+-- trigger below), so a wrong invoice is corrected with a credit/debit note
+-- (subtype + source_document_id), not edited. `direction` is invoice-only
+-- and independently overridable for real cash-ledger edge cases (refunds,
+-- interco) — it is NOT the same axis as `flow` (which side of the deal
+-- this is, set on every kind).
+--
+-- `issues` (goods-issue, stock-only) is deliberately NOT part of this
+-- table: it must never gain a financial/invoice link, so that boundary is
+-- kept at the schema level rather than a constraint someone has to
+-- remember — see below.
+create table if not exists documents (
   id uuid primary key default uuid_generate_v4(),
+  kind text not null check (kind in ('quote', 'invoice', 'delivery', 'order')),
+  subtype text,
   number text not null,
   date date not null default current_date,
   due_date date,
   organization_id uuid not null references organizations(id) on delete restrict,
-  counterparty_kind counterparty_kind not null default 'contact',
   counterparty_id uuid not null references contacts(id) on delete restrict,
-  type invoice_type not null default 'standard',
-  direction text not null default 'in' check (direction in ('in', 'out')),
-  payment_method text,
-  totals jsonb default '{"htSubtotal": 0, "chargesByKey": {}, "ttc": 0}'::jsonb,
-  source_quote_id uuid references quotes(id) on delete set null,
-  original_invoice_id uuid references invoices(id) on delete set null,
+  flow text not null check (flow in ('sale', 'purchase')),
+  direction text,
+  status text,
+  totals jsonb,
   notes text,
+  source_document_id uuid references documents(id) on delete set null,
+  -- Kind-specific extras that don't warrant their own column on every row:
+  -- payment_method/counterparty_kind (invoice), driver_name/
+  -- vehicle_registration (delivery).
+  attributes jsonb not null default '{}'::jsonb,
   created_at timestamptz default now(),
-  unique (organization_id, number)
+  unique (organization_id, number),
+  constraint documents_subtype_check check (
+    (kind = 'invoice' and subtype in ('standard', 'credit', 'debit'))
+    or (kind = 'order' and subtype in ('supplier', 'interco', 'customer'))
+    or (kind in ('quote', 'delivery') and subtype is null)
+  ),
+  constraint documents_direction_check check (
+    (kind = 'invoice' and direction in ('in', 'out'))
+    or (kind <> 'invoice' and direction is null)
+  ),
+  constraint documents_status_check check (
+    (kind = 'quote' and status in ('draft', 'sent', 'accepted', 'rejected'))
+    or (kind in ('delivery', 'order') and status in ('draft', 'final'))
+    or (kind = 'invoice' and status is null)
+  )
 );
 
-create table if not exists invoice_lines (
+create table if not exists document_lines (
   id uuid primary key default uuid_generate_v4(),
-  invoice_id uuid not null references invoices(id) on delete cascade,
+  document_id uuid not null references documents(id) on delete cascade,
   article_id uuid references articles(id) on delete set null,
   code text not null,
   designation text not null,
   unit text,
   quantity numeric(12,2) not null default 1,
-  unit_price_puht numeric(12,2) not null default 0,
-  remise_percent numeric(5,2) default 0,
-  tax_charges jsonb not null default '[]'::jsonb
+  unit_price_excl_tax numeric(12,2) not null default 0,
+  discount_percent numeric(5,2) default 0,
+  tax_charges jsonb not null default '[]'::jsonb,
+  -- For quote-kind lines: an estimate to show the customer (never creates
+  -- real consignment_lines rows). For invoice-kind lines: unused (stays
+  -- '[]') — the real charge ledger is consignment_lines, keyed by
+  -- document_id below.
+  consignments jsonb not null default '[]'::jsonb
 );
 
 -- A row is either a charge (tied to the invoice line whose article implied
--- it, quantity positive) or a standalone return (invoice_id null, quantity
+-- it, quantity positive) or a standalone return (document_id null, quantity
 -- negative, org/counterparty/date/direction carried directly since there's
--- no invoice to derive them from) — never a mix, enforced by the check
+-- no document to derive them from) — never a mix, enforced by the check
 -- constraint below. Outstanding deposit liability per counterparty +
 -- packaging_type is always sum(quantity) over this one table.
 create table if not exists consignment_lines (
   id uuid primary key default uuid_generate_v4(),
-  invoice_id uuid references invoices(id) on delete cascade,
-  source_line_id uuid references invoice_lines(id) on delete cascade,
+  document_id uuid references documents(id) on delete cascade,
+  source_line_id uuid references document_lines(id) on delete cascade,
   organization_id uuid references organizations(id),
   counterparty_id uuid references contacts(id),
   date date,
@@ -200,41 +179,15 @@ create table if not exists consignment_lines (
   deposit_value numeric(12,2) not null default 0,
   total numeric(12,2) not null default 0,
   constraint consignment_lines_origin_check check (
-    (invoice_id is not null and source_line_id is not null
+    (document_id is not null and source_line_id is not null
       and organization_id is null and counterparty_id is null and direction is null and date is null)
     or
-    (invoice_id is null and source_line_id is null
+    (document_id is null and source_line_id is null
       and organization_id is not null and counterparty_id is not null and direction is not null and date is not null)
   )
 );
 create index if not exists idx_consignment_lines_counterparty on consignment_lines(counterparty_id) where counterparty_id is not null;
-create index if not exists idx_consignment_lines_invoice on consignment_lines(invoice_id) where invoice_id is not null;
-
--- Delivery Note (BL). Optional step in the sales flow, after a quote and
--- before/alongside the invoice.
-create table if not exists deliveries (
-  id uuid primary key default uuid_generate_v4(),
-  number text not null,
-  date date not null default current_date,
-  organization_id uuid not null references organizations(id) on delete restrict,
-  counterparty_id uuid not null references contacts(id) on delete restrict,
-  driver_name text,
-  vehicle_registration text,
-  status document_status not null default 'draft',
-  source_quote_id uuid references quotes(id) on delete set null,
-  created_at timestamptz default now(),
-  unique (organization_id, number)
-);
-
-create table if not exists delivery_lines (
-  id uuid primary key default uuid_generate_v4(),
-  delivery_id uuid not null references deliveries(id) on delete cascade,
-  article_id uuid references articles(id) on delete set null,
-  code text not null,
-  designation text not null,
-  unit text,
-  quantity numeric(12,2) not null default 1
-);
+create index if not exists idx_consignment_lines_document on consignment_lines(document_id) where document_id is not null;
 
 -- Ledger of stock in/out movements. Deliveries write "out" rows for any line
 -- tied to an article_id; articles.stock.onHand is kept in sync on write.
@@ -245,47 +198,14 @@ create table if not exists stock_movements (
   quantity_delta numeric(12,2) not null,
   direction text not null,
   source_type text not null,
-  source_id uuid,
+  source_document_id uuid references documents(id) on delete set null,
   date date not null default current_date,
   created_at timestamptz default now()
 );
 
--- Supplier Order (BC). Confirmed by an invoice that references it back
--- (invoices.source_order_id — see the invoices table above); the order
--- itself carries no forward pointer, since "was this order invoiced" is
--- always a lookup, not a stored flag (keeps the same rule as Quote/Delivery
--- and correctly allows more than one invoice per order later, e.g. partial
--- invoicing or corrections).
-create table if not exists orders (
-  id uuid primary key default uuid_generate_v4(),
-  number text not null,
-  date date not null default current_date,
-  organization_id uuid not null references organizations(id) on delete restrict,
-  counterparty_id uuid not null references contacts(id) on delete restrict,
-  type order_type not null default 'supplier',
-  status document_status not null default 'draft',
-  created_at timestamptz default now(),
-  unique (organization_id, number)
-);
-
--- Added here (after orders/deliveries exist) rather than inline on the
--- invoices table above, purely for create-order-within-this-file reasons.
-alter table invoices add column if not exists source_order_id uuid references orders(id) on delete set null;
-alter table invoices add column if not exists source_delivery_id uuid references deliveries(id) on delete set null;
-
-create table if not exists order_lines (
-  id uuid primary key default uuid_generate_v4(),
-  order_id uuid not null references orders(id) on delete cascade,
-  code text not null,
-  designation text not null,
-  unit text,
-  quantity numeric(12,2) not null default 1,
-  unit_price numeric(12,2)
-);
-
 -- Warehouse Issue (BS): a stock-only correction document. It must never
 -- gain a financial/invoice link — that's the whole point of it existing
--- separately from Orders/Deliveries.
+-- separately from documents above.
 create table if not exists issues (
   id uuid primary key default uuid_generate_v4(),
   number text not null,
@@ -300,6 +220,7 @@ create table if not exists issues (
 create table if not exists issue_lines (
   id uuid primary key default uuid_generate_v4(),
   issue_id uuid not null references issues(id) on delete cascade,
+  article_id uuid references articles(id) on delete set null,
   code text not null,
   designation text not null,
   unit text,
@@ -351,32 +272,25 @@ create index if not exists idx_contacts_company_name on contacts(company_name);
 create index if not exists idx_contacts_internal_org on contacts(internal_organization_id);
 create index if not exists idx_articles_code on articles(code);
 create index if not exists idx_articles_organization on articles(organization_id);
-create index if not exists idx_quotes_number on quotes(number);
-create index if not exists idx_quotes_organization on quotes(organization_id);
-create index if not exists idx_quote_lines_quote on quote_lines(quote_id);
-create index if not exists idx_invoices_number on invoices(number);
-create index if not exists idx_invoices_organization on invoices(organization_id);
-create index if not exists idx_invoices_counterparty on invoices(counterparty_id);
-create index if not exists idx_invoices_date on invoices(date);
-create index if not exists idx_invoices_source_quote on invoices(source_quote_id);
-create index if not exists idx_invoices_source_order on invoices(source_order_id);
-create index if not exists idx_invoices_source_delivery on invoices(source_delivery_id);
-create index if not exists idx_invoices_original_invoice on invoices(original_invoice_id);
-create index if not exists idx_invoice_lines_invoice on invoice_lines(invoice_id);
-create index if not exists idx_deliveries_number on deliveries(number);
-create index if not exists idx_deliveries_organization on deliveries(organization_id);
-create index if not exists idx_delivery_lines_article on delivery_lines(article_id);
+create index if not exists idx_documents_organization on documents(organization_id);
+create index if not exists idx_documents_kind on documents(kind);
+create index if not exists idx_documents_counterparty on documents(counterparty_id);
+create index if not exists idx_documents_date on documents(date);
+create index if not exists idx_documents_source on documents(source_document_id);
+create index if not exists idx_documents_number on documents(number);
+create index if not exists idx_document_lines_document on document_lines(document_id);
+create index if not exists idx_document_lines_article on document_lines(article_id);
 create index if not exists idx_stock_movements_article on stock_movements(article_id);
 create index if not exists idx_stock_movements_organization on stock_movements(organization_id);
 create index if not exists idx_stock_movements_date on stock_movements(date desc);
-create index if not exists idx_orders_number on orders(number);
-create index if not exists idx_orders_organization on orders(organization_id);
 create index if not exists idx_issues_number on issues(number);
 create index if not exists idx_issues_organization on issues(organization_id);
+create index if not exists idx_issue_lines_article on issue_lines(article_id);
 create index if not exists idx_logs_organization on logs(organization_id);
 create index if not exists idx_logs_created_at on logs(created_at desc);
-create index if not exists idx_user_organizations_user on user_organizations(user_id);
-create index if not exists idx_user_organizations_org on user_organizations(organization_id);
+create index if not exists idx_user_tenants_user on user_tenants(user_id);
+create index if not exists idx_user_tenants_tenant on user_tenants(tenant_id);
+create index if not exists idx_organizations_tenant on organizations(tenant_id);
 
 -- ============================================
 -- FUNCTIONS
@@ -420,7 +334,9 @@ end;
 $$ language plpgsql security definer;
 
 -- Invoices are immutable: no UPDATE, no DELETE. Corrections go through a
--- credit/debit note (type + original_invoice_id) instead.
+-- credit/debit note (subtype + source_document_id) instead. Scoped to
+-- kind='invoice' via WHEN, since documents also holds quote/delivery/order
+-- rows that stay editable.
 create or replace function forbid_invoice_mutation()
 returns trigger as $$
 begin
@@ -428,7 +344,9 @@ begin
 end;
 $$ language plpgsql;
 
-drop trigger if exists invoices_no_update on invoices;
-create trigger invoices_no_update
-  before update or delete on invoices
-  for each row execute function forbid_invoice_mutation();
+drop trigger if exists documents_no_update_invoice on documents;
+create trigger documents_no_update_invoice
+  before update or delete on documents
+  for each row
+  when (OLD.kind = 'invoice')
+  execute function forbid_invoice_mutation();

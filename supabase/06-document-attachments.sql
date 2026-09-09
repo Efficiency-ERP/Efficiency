@@ -9,11 +9,15 @@
 -- TABLE
 -- ============================================
 
+-- document_id references documents(id) — both 'invoice' and 'order' kinds
+-- live in that one table since the document merge (13-document-merge.sql),
+-- which is what makes a real FK here possible (previously two separate
+-- tables, so document_id was a bare uuid with no FK at all).
 create table if not exists document_attachments (
   id uuid primary key default uuid_generate_v4(),
   organization_id uuid not null references organizations(id) on delete cascade,
   document_type text not null check (document_type in ('invoice', 'order')),
-  document_id uuid not null,
+  document_id uuid not null references documents(id) on delete cascade,
   kind text not null check (kind in ('pre_invoice', 'post_invoice')),
   file_name text not null,
   file_path text not null,

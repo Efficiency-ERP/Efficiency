@@ -106,8 +106,8 @@ export default function AllQuotesPage() {
                     </button>
                   </td>
                   <td className="p-3">{q.date}</td>
-                  <td className="p-3"><Badge variant={statusVariant(q.status)}>{q.status}</Badge></td>
-                  <td className="p-3 text-right">{formatTND(totals.ttc || 0)}</td>
+                  <td className="p-3"><Badge variant={statusVariant(q.status || "draft")}>{q.status}</Badge></td>
+                  <td className="p-3 text-right">{formatTND(totals.total_incl_tax || 0)}</td>
                   <td className="p-3 text-right">
                     <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>View</Button>
                   </td>

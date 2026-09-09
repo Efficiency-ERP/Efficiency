@@ -69,7 +69,7 @@ export async function recordDeliveryStockMovements(
         quantity_delta: -qty,
         direction: "out" as const,
         source_type: "delivery" as const,
-        source_id: deliveryId,
+        source_document_id: deliveryId,
         date,
       }))
     )

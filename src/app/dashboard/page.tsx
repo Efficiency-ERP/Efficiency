@@ -13,7 +13,7 @@ import { getInvoices, correctionSign, netCashFlow } from "@/lib/supabase/invoice
 import { getOrders } from "@/lib/supabase/invoices"
 import { getDeliveries } from "@/lib/supabase/invoices"
 import { getIssues } from "@/lib/supabase/invoices"
-import type { Stock, InvoiceTotals, Invoice, Order, Delivery, Issue } from "@/types/database"
+import type { Stock, InvoiceTotals, Invoice, Order, Delivery, Issue, InvoiceType } from "@/types/database"
 
 type Range = "7" | "30" | "90" | "ytd"
 
@@ -98,7 +98,7 @@ export default function DashboardHome() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart && inv.direction === "out")
-      .reduce((s, inv) => s + correctionSign(inv.type) * (castJson<InvoiceTotals>(inv.totals).ttc || 0), 0)
+      .reduce((s, inv) => s + correctionSign((inv.subtype as InvoiceType) || "standard") * (castJson<InvoiceTotals>(inv.totals).total_incl_tax || 0), 0)
   }, [filteredInvoices, now])
 
   const inCount = filteredInvoices.filter((i) => i.direction === "in").length
@@ -108,7 +108,7 @@ export default function DashboardHome() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1)
     return filteredInvoices
       .filter((inv) => new Date(inv.date) >= mtdStart)
-      .reduce((s, inv) => s + correctionSign(inv.type) * Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
+      .reduce((s, inv) => s + correctionSign((inv.subtype as InvoiceType) || "standard") * Object.values(castJson<InvoiceTotals>(inv.totals).chargesByKey || {}).reduce((a, b) => a + b, 0), 0)
   }, [filteredInvoices, now])
 
   const chartData = useMemo(() => {

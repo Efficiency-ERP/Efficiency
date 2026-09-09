@@ -100,12 +100,12 @@ export default function StockMovementsPage() {
       accessorKey: "source_type",
       header: "Source",
       cell: ({ row }) => {
-        const { source_type, source_id } = row.original
-        if (source_type === "delivery" && source_id) {
-          const delivery = deliveryById.get(source_id)
+        const { source_type, source_document_id } = row.original
+        if (source_type === "delivery" && source_document_id) {
+          const delivery = deliveryById.get(source_document_id)
           return (
             <button
-              onClick={() => router.push(`${SOURCE_ROUTES[source_type]}/${source_id}`)}
+              onClick={() => router.push(`${SOURCE_ROUTES[source_type]}/${source_document_id}`)}
               className="underline hover:no-underline"
             >
               {delivery ? delivery.number : "Delivery"}

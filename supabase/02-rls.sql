@@ -22,16 +22,10 @@ alter table if exists tenants enable row level security;
 alter table if exists organizations enable row level security;
 alter table if exists contacts enable row level security;
 alter table if exists articles enable row level security;
-alter table if exists quotes enable row level security;
-alter table if exists quote_lines enable row level security;
-alter table if exists invoices enable row level security;
-alter table if exists invoice_lines enable row level security;
+alter table if exists documents enable row level security;
+alter table if exists document_lines enable row level security;
 alter table if exists consignment_lines enable row level security;
-alter table if exists deliveries enable row level security;
-alter table if exists delivery_lines enable row level security;
 alter table if exists stock_movements enable row level security;
-alter table if exists orders enable row level security;
-alter table if exists order_lines enable row level security;
 alter table if exists issues enable row level security;
 alter table if exists issue_lines enable row level security;
 alter table if exists profiles enable row level security;
@@ -95,49 +89,21 @@ drop policy if exists "Users can view articles" on articles;
 drop policy if exists "Users can create articles" on articles;
 drop policy if exists "Users can update articles" on articles;
 
--- quotes
-drop policy if exists "Users can view quotes" on quotes;
-drop policy if exists "Users can create quotes" on quotes;
-drop policy if exists "Users can update quotes" on quotes;
+-- documents
+drop policy if exists "Users can view documents" on documents;
+drop policy if exists "Users can create documents" on documents;
+drop policy if exists "Users can update documents" on documents;
 
--- quote_lines
-drop policy if exists "Users can view quote lines" on quote_lines;
-drop policy if exists "Users can manage quote lines" on quote_lines;
-
--- invoices (no update policy — the immutability trigger blocks updates outright)
-drop policy if exists "Users can view invoices" on invoices;
-drop policy if exists "Users can create invoices" on invoices;
-drop policy if exists "Users can update invoices" on invoices;
-
--- invoice_lines
-drop policy if exists "Users can view invoice lines" on invoice_lines;
-drop policy if exists "Users can manage invoice lines" on invoice_lines;
+-- document_lines
+drop policy if exists "Users can manage document lines" on document_lines;
 
 -- consignment_lines
 drop policy if exists "Users can view consignment lines" on consignment_lines;
 drop policy if exists "Users can manage consignment lines" on consignment_lines;
 
--- deliveries
-drop policy if exists "Users can view deliveries" on deliveries;
-drop policy if exists "Users can create deliveries" on deliveries;
-drop policy if exists "Users can update deliveries" on deliveries;
-
--- delivery_lines
-drop policy if exists "Users can view delivery lines" on delivery_lines;
-drop policy if exists "Users can manage delivery lines" on delivery_lines;
-
 -- stock_movements
 drop policy if exists "Users can view stock movements" on stock_movements;
 drop policy if exists "Users can create stock movements" on stock_movements;
-
--- orders
-drop policy if exists "Users can view orders" on orders;
-drop policy if exists "Users can create orders" on orders;
-drop policy if exists "Users can update orders" on orders;
-
--- order_lines
-drop policy if exists "Users can view order lines" on order_lines;
-drop policy if exists "Users can manage order lines" on order_lines;
 
 -- issues
 drop policy if exists "Users can view issues" on issues;
@@ -312,157 +278,76 @@ create policy "Users can update articles"
   using (organization_id in (select public.user_organization_ids()))
   with check (organization_id in (select public.user_organization_ids()));
 
--- QUOTES
-create policy "Users can view quotes"
-  on quotes for select
+-- DOCUMENTS (quote/invoice/delivery/order, merged)
+create policy "Users can view documents"
+  on documents for select
   to authenticated
   using (organization_id in (select public.user_organization_ids()));
 
-create policy "Users can create quotes"
-  on quotes for insert
+create policy "Users can create documents"
+  on documents for insert
   to authenticated
   with check (organization_id in (select public.user_organization_ids()));
 
-create policy "Users can update quotes"
-  on quotes for update
+-- Invoices get no path to UPDATE here (matching invoices' old "no update
+-- policy" stance) — the immutability trigger is the second, belt-and-
+-- suspenders layer for the same rule. Quote/delivery/order rows stay
+-- updatable.
+create policy "Users can update documents"
+  on documents for update
   to authenticated
-  using (organization_id in (select public.user_organization_ids()))
-  with check (organization_id in (select public.user_organization_ids()));
+  using (organization_id in (select public.user_organization_ids()) and kind <> 'invoice')
+  with check (organization_id in (select public.user_organization_ids()) and kind <> 'invoice');
 
--- QUOTE LINES
-create policy "Users can view quote lines"
-  on quote_lines for select
+-- DOCUMENT LINES
+create policy "Users can manage document lines"
+  on document_lines for all
   to authenticated
   using (exists (
-    select 1 from quotes q
-    where q.id = quote_lines.quote_id
-      and q.organization_id in (select public.user_organization_ids())
-  ));
-
-create policy "Users can manage quote lines"
-  on quote_lines for all
-  to authenticated
-  using (exists (
-    select 1 from quotes q
-    where q.id = quote_lines.quote_id
-      and q.organization_id in (select public.user_organization_ids())
+    select 1 from documents d
+    where d.id = document_lines.document_id
+      and d.organization_id in (select public.user_organization_ids())
   ))
   with check (exists (
-    select 1 from quotes q
-    where q.id = quote_lines.quote_id
-      and q.organization_id in (select public.user_organization_ids())
+    select 1 from documents d
+    where d.id = document_lines.document_id
+      and d.organization_id in (select public.user_organization_ids())
   ));
 
--- INVOICES (no update policy — immutability trigger blocks UPDATE/DELETE)
-create policy "Users can view invoices"
-  on invoices for select
-  to authenticated
-  using (organization_id in (select public.user_organization_ids()));
-
-create policy "Users can create invoices"
-  on invoices for insert
-  to authenticated
-  with check (organization_id in (select public.user_organization_ids()));
-
--- INVOICE LINES
-create policy "Users can view invoice lines"
-  on invoice_lines for select
-  to authenticated
-  using (exists (
-    select 1 from invoices i
-    where i.id = invoice_lines.invoice_id
-      and i.organization_id in (select public.user_organization_ids())
-  ));
-
-create policy "Users can manage invoice lines"
-  on invoice_lines for all
-  to authenticated
-  using (exists (
-    select 1 from invoices i
-    where i.id = invoice_lines.invoice_id
-      and i.organization_id in (select public.user_organization_ids())
-  ))
-  with check (exists (
-    select 1 from invoices i
-    where i.id = invoice_lines.invoice_id
-      and i.organization_id in (select public.user_organization_ids())
-  ));
-
--- CONSIGNMENT LINES — either invoice-linked (a charge) or standalone (a
--- return, organization_id set directly) — same split the table's own check
--- constraint already enforces.
+-- CONSIGNMENT LINES — either document-linked (a charge, always kind=invoice)
+-- or standalone (a return, organization_id set directly) — same split the
+-- table's own check constraint already enforces.
 create policy "Users can view consignment lines"
   on consignment_lines for select
   to authenticated
   using (
-    (invoice_id is not null and exists (
-      select 1 from invoices i
-      where i.id = consignment_lines.invoice_id
-        and i.organization_id in (select public.user_organization_ids())
+    (document_id is not null and exists (
+      select 1 from documents d
+      where d.id = consignment_lines.document_id
+        and d.organization_id in (select public.user_organization_ids())
     ))
-    or (invoice_id is null and organization_id in (select public.user_organization_ids()))
+    or (document_id is null and organization_id in (select public.user_organization_ids()))
   );
 
 create policy "Users can manage consignment lines"
   on consignment_lines for all
   to authenticated
   using (
-    (invoice_id is not null and exists (
-      select 1 from invoices i
-      where i.id = consignment_lines.invoice_id
-        and i.organization_id in (select public.user_organization_ids())
+    (document_id is not null and exists (
+      select 1 from documents d
+      where d.id = consignment_lines.document_id
+        and d.organization_id in (select public.user_organization_ids())
     ))
-    or (invoice_id is null and organization_id in (select public.user_organization_ids()))
+    or (document_id is null and organization_id in (select public.user_organization_ids()))
   )
   with check (
-    (invoice_id is not null and exists (
-      select 1 from invoices i
-      where i.id = consignment_lines.invoice_id
-        and i.organization_id in (select public.user_organization_ids())
+    (document_id is not null and exists (
+      select 1 from documents d
+      where d.id = consignment_lines.document_id
+        and d.organization_id in (select public.user_organization_ids())
     ))
-    or (invoice_id is null and organization_id in (select public.user_organization_ids()))
+    or (document_id is null and organization_id in (select public.user_organization_ids()))
   );
-
--- DELIVERIES
-create policy "Users can view deliveries"
-  on deliveries for select
-  to authenticated
-  using (organization_id in (select public.user_organization_ids()));
-
-create policy "Users can create deliveries"
-  on deliveries for insert
-  to authenticated
-  with check (organization_id in (select public.user_organization_ids()));
-
-create policy "Users can update deliveries"
-  on deliveries for update
-  to authenticated
-  using (organization_id in (select public.user_organization_ids()))
-  with check (organization_id in (select public.user_organization_ids()));
-
--- DELIVERY LINES
-create policy "Users can view delivery lines"
-  on delivery_lines for select
-  to authenticated
-  using (exists (
-    select 1 from deliveries d
-    where d.id = delivery_lines.delivery_id
-      and d.organization_id in (select public.user_organization_ids())
-  ));
-
-create policy "Users can manage delivery lines"
-  on delivery_lines for all
-  to authenticated
-  using (exists (
-    select 1 from deliveries d
-    where d.id = delivery_lines.delivery_id
-      and d.organization_id in (select public.user_organization_ids())
-  ))
-  with check (exists (
-    select 1 from deliveries d
-    where d.id = delivery_lines.delivery_id
-      and d.organization_id in (select public.user_organization_ids())
-  ));
 
 -- STOCK MOVEMENTS
 create policy "Users can view stock movements"
@@ -474,47 +359,6 @@ create policy "Users can create stock movements"
   on stock_movements for insert
   to authenticated
   with check (organization_id in (select public.user_organization_ids()));
-
--- ORDERS
-create policy "Users can view orders"
-  on orders for select
-  to authenticated
-  using (organization_id in (select public.user_organization_ids()));
-
-create policy "Users can create orders"
-  on orders for insert
-  to authenticated
-  with check (organization_id in (select public.user_organization_ids()));
-
-create policy "Users can update orders"
-  on orders for update
-  to authenticated
-  using (organization_id in (select public.user_organization_ids()))
-  with check (organization_id in (select public.user_organization_ids()));
-
--- ORDER LINES
-create policy "Users can view order lines"
-  on order_lines for select
-  to authenticated
-  using (exists (
-    select 1 from orders o
-    where o.id = order_lines.order_id
-      and o.organization_id in (select public.user_organization_ids())
-  ));
-
-create policy "Users can manage order lines"
-  on order_lines for all
-  to authenticated
-  using (exists (
-    select 1 from orders o
-    where o.id = order_lines.order_id
-      and o.organization_id in (select public.user_organization_ids())
-  ))
-  with check (exists (
-    select 1 from orders o
-    where o.id = order_lines.order_id
-      and o.organization_id in (select public.user_organization_ids())
-  ));
 
 -- ISSUES
 create policy "Users can view issues"

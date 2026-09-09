@@ -44,7 +44,7 @@ export default function OrdersListPage() {
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       if (search && !o.number.toLowerCase().includes(search.toLowerCase())) return false
-      if (typeFilter !== "all" && o.type !== typeFilter) return false
+      if (typeFilter !== "all" && o.subtype !== typeFilter) return false
       return true
     })
   }, [orders, search, typeFilter])
@@ -97,7 +97,7 @@ export default function OrdersListPage() {
                 </td>
                 <td className="p-3">{o.date}</td>
                 <td className="p-3">{contactById.get(o.counterparty_id)?.company_name || "N/A"}</td>
-                <td className="p-3"><Badge variant="outline">{o.type}</Badge></td>
+                <td className="p-3"><Badge variant="outline">{o.subtype}</Badge></td>
                 <td className="p-3"><Badge variant={o.status === "final" ? "default" : "outline"}>{o.status}</Badge></td>
                 <td className="p-3 text-right">
                   <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/orders/${o.id}`)}>View</Button>
