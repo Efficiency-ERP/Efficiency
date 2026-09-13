@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import type { StockMovement, Delivery } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
+import { SectionTabs } from "@/components/section-tabs"
+import { ARTICLES_TABS } from "@/lib/section-tabs-config"
 
 const SOURCE_ROUTES: Record<string, string> = {
   delivery: "/dashboard/deliveries",
@@ -98,12 +100,12 @@ export default function StockMovementsPage() {
       accessorKey: "source_type",
       header: "Source",
       cell: ({ row }) => {
-        const { source_type, source_id } = row.original
-        if (source_type === "delivery" && source_id) {
-          const delivery = deliveryById.get(source_id)
+        const { source_type, source_document_id } = row.original
+        if (source_type === "delivery" && source_document_id) {
+          const delivery = deliveryById.get(source_document_id)
           return (
             <button
-              onClick={() => router.push(`${SOURCE_ROUTES[source_type]}/${source_id}`)}
+              onClick={() => router.push(`${SOURCE_ROUTES[source_type]}/${source_document_id}`)}
               className="underline hover:no-underline"
             >
               {delivery ? delivery.number : "Delivery"}
@@ -115,25 +117,30 @@ export default function StockMovementsPage() {
     },
   ]
 
-  if (loading) return <div className="text-muted-foreground">Loading stock movements...</div>
-
   return (
     <div className="space-y-4">
+      <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Stock Movements</h1>
       </div>
-      <div className="flex gap-4">
-        <Input placeholder="Search by article code or designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
-        <Select value={directionFilter} onValueChange={setDirectionFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Directions</SelectItem>
-            <SelectItem value="in">In</SelectItem>
-            <SelectItem value="out">Out</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <DataTable columns={columns} data={filteredMovements} />
+      {loading ? (
+        <div className="text-muted-foreground">Loading stock movements...</div>
+      ) : (
+        <>
+          <div className="flex gap-4">
+            <Input placeholder="Search by article code or designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <Select value={directionFilter} onValueChange={setDirectionFilter}>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Directions</SelectItem>
+                <SelectItem value="in">In</SelectItem>
+                <SelectItem value="out">Out</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DataTable columns={columns} data={filteredMovements} />
+        </>
+      )}
     </div>
   )
 }

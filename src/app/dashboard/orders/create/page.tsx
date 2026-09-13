@@ -7,7 +7,7 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useMyPme } from "@/hooks/use-my-pme"
 import { useActionLog } from "@/hooks/use-action-log"
-import { createOrder, generateOrderNumber } from "@/lib/supabase/invoices"
+import { createOrder, getNextDocumentNumber } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -26,17 +26,16 @@ export default function CreateOrderPage() {
   const logAction = useActionLog("orders")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
-  const [orderNumber] = useState(generateOrderNumber())
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price: number | null }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_excl_tax: number | null }>>([])
   const [loading, setLoading] = useState(false)
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
     if (!article) return
-    setLines([...lines, { code: article.code, designation: article.designation, unit: article.unit, quantity: 1, unit_price: article.unit_price_puht }])
+    setLines([...lines, { code: article.code, designation: article.designation, unit: article.unit, quantity: 1, unit_price_excl_tax: article.unit_price_puht }])
   }
-  const addFreeformLine = () => setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price: null }])
+  const addFreeformLine = () => setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_excl_tax: null }])
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => { const u = [...lines]; u[i] = { ...u[i], ...patch }; setLines(u) }
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i))
 
@@ -47,7 +46,7 @@ export default function CreateOrderPage() {
     if (lines.length === 0) { alert("Add at least one line"); return }
     setLoading(true)
     try {
-      const order = await createOrder({ number: orderNumber, date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft" }, lines)
+      const order = await createOrder({ number: await getNextDocumentNumber(organizationId, "O"), date, organization_id: organizationId, counterparty_id: counterpartyId, type: orderType, status: "draft" }, lines)
       await logAction(`Created ${orderType} order ${order.number}`, order.id, organizationId)
       router.push("/dashboard/orders")
     } catch { alert("Failed to create order") } finally { setLoading(false) }
@@ -94,7 +93,7 @@ export default function CreateOrderPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>Number</Label><Input value={orderNumber} readOnly /></div>
+              <div className="grid gap-2"><Label>Number</Label><Input value="Auto-generated on save" readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             </div>
           </CardContent>
@@ -120,7 +119,7 @@ export default function CreateOrderPage() {
           <CardContent>
             {lines.length === 0 ? <div className="text-center py-8 text-muted-foreground">No lines</div> : (
               <table className="w-full text-sm"><thead><tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Designation</th><th className="text-right p-2">Qty</th><th className="text-left p-2">Unit</th><th className="text-right p-2">Price</th><th></th></tr></thead>
-                <tbody>{lines.map((line, i) => (<tr key={i} className="border-b"><td className="p-1"><Input value={line.code} onChange={(e) => updateLine(i, { code: e.target.value })} className="h-8" /></td><td className="p-1"><Input value={line.designation} onChange={(e) => updateLine(i, { designation: e.target.value })} className="h-8" /></td><td className="p-1"><Input type="number" value={line.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td><td className="p-1"><Input value={line.unit || ""} onChange={(e) => updateLine(i, { unit: e.target.value || null })} className="h-8 w-20" /></td><td className="p-1"><Input type="number" step="0.01" value={line.unit_price || 0} onChange={(e) => updateLine(i, { unit_price: Number(e.target.value) })} className="h-8 w-24 text-right" /></td><td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td></tr>))}</tbody></table>
+                <tbody>{lines.map((line, i) => (<tr key={i} className="border-b"><td className="p-1"><Input value={line.code} onChange={(e) => updateLine(i, { code: e.target.value })} className="h-8" /></td><td className="p-1"><Input value={line.designation} onChange={(e) => updateLine(i, { designation: e.target.value })} className="h-8" /></td><td className="p-1"><Input type="number" value={line.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td><td className="p-1"><Input value={line.unit || ""} onChange={(e) => updateLine(i, { unit: e.target.value || null })} className="h-8 w-20" /></td><td className="p-1"><Input type="number" step="0.01" value={line.unit_price_excl_tax || 0} onChange={(e) => updateLine(i, { unit_price_excl_tax: Number(e.target.value) })} className="h-8 w-24 text-right" /></td><td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td></tr>))}</tbody></table>
             )}
           </CardContent>
         </Card>

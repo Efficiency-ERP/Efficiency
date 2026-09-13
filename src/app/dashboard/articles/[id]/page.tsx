@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import type { Stock, Consignment, ConsignmentPackaging, TaxCharge } from "@/types/database"
+import type { Stock, Consignment, TaxCharge } from "@/types/database"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
+import { pickPackagingContainers } from "@/lib/supabase/invoices"
 import { useState } from "react"
 
 export default function ArticleSummaryPage({ params }: { params: Promise<{ id: string }> }) {
@@ -74,22 +75,18 @@ export default function ArticleSummaryPage({ params }: { params: Promise<{ id: s
             </div>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b"><th className="text-left py-2">Type</th><th className="text-right py-2">Units/Art</th><th className="text-right py-2">Qty</th><th className="text-right py-2">Deposit/Unit</th><th className="text-right py-2">Total</th></tr>
+                <tr className="border-b"><th className="text-left py-2">Type</th><th className="text-right py-2">Container Size</th><th className="text-right py-2">Containers</th><th className="text-right py-2">Deposit/Unit</th><th className="text-right py-2">Total</th></tr>
               </thead>
               <tbody>
-                {consignment.packaging.map((pkg: ConsignmentPackaging, i: number) => {
-                  const pkgQty = qty * pkg.unitsPerArticle
-                  const total = pkgQty * pkg.depositValue
-                  return (
-                    <tr key={i} className="border-b">
-                      <td className="py-2">{pkg.type}</td>
-                      <td className="text-right py-2">{pkg.unitsPerArticle}</td>
-                      <td className="text-right py-2">{pkgQty}</td>
-                      <td className="text-right py-2">{formatTND(pkg.depositValue)}</td>
-                      <td className="text-right py-2">{formatTND(total)}</td>
-                    </tr>
-                  )
-                })}
+                {pickPackagingContainers(consignment.packaging, qty).map((c, i) => (
+                  <tr key={i} className="border-b">
+                    <td className="py-2">{c.packaging_type}</td>
+                    <td className="text-right py-2">{c.units_per_article}</td>
+                    <td className="text-right py-2">{c.quantity}</td>
+                    <td className="text-right py-2">{formatTND(c.deposit_value)}</td>
+                    <td className="text-right py-2">{formatTND(c.total)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </CardContent>

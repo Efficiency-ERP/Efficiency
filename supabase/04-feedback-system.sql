@@ -125,8 +125,9 @@ create policy "Anonymous users can create feedback"
   to anon
   with check (user_id is null);
 
-create policy "Anyone can update feedback"
+create policy "Authenticated users can update feedback"
   on feedback for update
+  to authenticated
   using (true);
 
 create policy "Anyone can read feedback attachments"
@@ -142,14 +143,17 @@ create policy "Anyone can read feedback notes"
   on feedback_notes for select
   using (true);
 
-create policy "Anyone can create feedback notes"
+create policy "Authenticated users can create feedback notes"
   on feedback_notes for insert
+  to authenticated
   with check (true);
 
-create policy "Anyone can update feedback notes"
+create policy "Authenticated users can update feedback notes"
   on feedback_notes for update
+  to authenticated
   using (true);
 
-create policy "Anyone can delete feedback notes"
+create policy "Authenticated users can delete feedback notes"
   on feedback_notes for delete
+  to authenticated
   using (true);

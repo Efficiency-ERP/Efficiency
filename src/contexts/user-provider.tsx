@@ -52,8 +52,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           .eq("id", authUserId)
           .single(),
         supabase
-          .from("user_organizations" as never)
-          .select("organization_id" as never)
+          .from("user_tenants" as never)
+          .select("tenant_id" as never)
           .eq("user_id", authUserId),
       ])
 
@@ -70,13 +70,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         })
       }
 
-      const orgs = orgMembersResult.data as Array<{ organization_id: string }> | null
-      if (orgs && orgs.length > 0) {
-        const orgIds = orgs.map((uo) => uo.organization_id)
+      // Joining a tenant grants access to every org under it, so we look
+      // up organizations by tenant_id rather than a per-org membership list.
+      const tenantMemberships = orgMembersResult.data as Array<{ tenant_id: string }> | null
+      if (tenantMemberships && tenantMemberships.length > 0) {
+        const tenantIds = tenantMemberships.map((ut) => ut.tenant_id)
         const { data: orgData } = await supabase
           .from("organizations" as never)
           .select("*" as never)
-          .in("id", orgIds)
+          .in("tenant_id", tenantIds)
 
         setOrganizations((orgData as unknown as Organization[]) || [])
       }

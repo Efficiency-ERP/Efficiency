@@ -43,7 +43,7 @@ export default function AddPMEPage() {
       })
       const createdContact = await createContact({
         party_type: "both",
-        is_internal_org: true,
+        tenant_id: org.tenant_id,
         internal_organization_id: org.id,
         company_name: org.name,
         mf: null,
