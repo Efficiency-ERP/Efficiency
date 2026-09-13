@@ -61,8 +61,9 @@ export function amountInWordsTND(amount: number): string {
   const dinars = Math.floor(rounded)
   const millimes = Math.round((rounded - dinars) * 1000)
 
-  const dinarWords = `${numberToFrenchWords(dinars)} ${dinars === 1 ? "dinar" : "dinars"}`
+  // French keeps the singular after zéro as well as un: "zéro dinar", "un dinar".
+  const dinarWords = `${numberToFrenchWords(dinars)} ${dinars < 2 ? "dinar" : "dinars"}`
   if (millimes === 0) return dinarWords
 
-  return `${dinarWords} et ${numberToFrenchWords(millimes)} ${millimes === 1 ? "millime" : "millimes"}`
+  return `${dinarWords} et ${numberToFrenchWords(millimes)} ${millimes < 2 ? "millime" : "millimes"}`
 }

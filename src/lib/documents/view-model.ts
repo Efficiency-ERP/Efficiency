@@ -139,6 +139,13 @@ function contactParty(contact: Contact | null): PartyView | null {
   }
 }
 
+// TND's minor unit is the millime, so money is rounded to three places. Without
+// this a line total arrives as 196.79999999999998, which display would hide but
+// an XML serializer reading this model would faithfully emit.
+function roundToMillimes(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
 function documentLineView(line: DocumentLine): LineView {
   const discountPercent = line.discount_percent || 0
   const discount = (line.unit_price_excl_tax * discountPercent) / 100
@@ -151,7 +158,7 @@ function documentLineView(line: DocumentLine): LineView {
     unitPriceExclTax: line.unit_price_excl_tax,
     discountPercent,
     taxCharges: castJson<TaxCharge[]>(line.tax_charges) || [],
-    totalExclTax: (line.unit_price_excl_tax - discount) * line.quantity,
+    totalExclTax: roundToMillimes((line.unit_price_excl_tax - discount) * line.quantity),
   }
 }
 
