@@ -117,26 +117,30 @@ export default function StockMovementsPage() {
     },
   ]
 
-  if (loading) return <div className="text-muted-foreground">Loading stock movements...</div>
-
   return (
     <div className="space-y-4">
       <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Stock Movements</h1>
       </div>
-      <div className="flex gap-4">
-        <Input placeholder="Search by article code or designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
-        <Select value={directionFilter} onValueChange={setDirectionFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Directions</SelectItem>
-            <SelectItem value="in">In</SelectItem>
-            <SelectItem value="out">Out</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <DataTable columns={columns} data={filteredMovements} />
+      {loading ? (
+        <div className="text-muted-foreground">Loading stock movements...</div>
+      ) : (
+        <>
+          <div className="flex gap-4">
+            <Input placeholder="Search by article code or designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <Select value={directionFilter} onValueChange={setDirectionFilter}>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Directions</SelectItem>
+                <SelectItem value="in">In</SelectItem>
+                <SelectItem value="out">Out</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DataTable columns={columns} data={filteredMovements} />
+        </>
+      )}
     </div>
   )
 }

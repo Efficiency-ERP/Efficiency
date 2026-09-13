@@ -85,6 +85,7 @@ export interface Database {
         Row: {
           id: string
           party_type: PartyType
+          tenant_id: string
           is_internal_org: boolean
           internal_organization_id: string | null
           company_name: string
@@ -99,7 +100,7 @@ export interface Database {
         Insert: {
           id?: string
           party_type: PartyType
-          is_internal_org?: boolean
+          tenant_id: string
           internal_organization_id?: string | null
           company_name: string
           mf?: string | null
@@ -113,7 +114,7 @@ export interface Database {
         Update: {
           id?: string
           party_type?: PartyType
-          is_internal_org?: boolean
+          tenant_id?: string
           internal_organization_id?: string | null
           company_name?: string
           mf?: string | null

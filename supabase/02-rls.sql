@@ -228,38 +228,26 @@ create policy "Users can update own organizations"
   using (id in (select public.user_organization_ids()))
   with check (id in (select public.user_organization_ids()));
 
--- CONTACTS — no organization_id column; ownership is via internal_organization_id
--- for internal-org contacts, and external contacts are intentionally shared
--- across tenants. Write access mirrors that: anyone can write an external
--- contact, but an internal-org contact must belong to one of the caller's
--- own orgs.
+-- CONTACTS — scoped by tenant_id, shared across every org under that
+-- tenant (siblings under the same PME group see the same contact book) but
+-- never across unrelated tenants. is_internal_org is derived, not a
+-- trusted flag; contacts_internal_org_tenant_check() (01-schema.sql)
+-- guarantees internal_organization_id always points within the same tenant.
 create policy "Users can view contacts"
   on contacts for select
   to authenticated
-  using (
-    is_internal_org = false
-    or internal_organization_id in (select public.user_organization_ids())
-  );
+  using (tenant_id in (select tenant_id from user_tenants where user_id = auth.uid()));
 
 create policy "Users can create contacts"
   on contacts for insert
   to authenticated
-  with check (
-    is_internal_org = false
-    or internal_organization_id in (select public.user_organization_ids())
-  );
+  with check (tenant_id in (select tenant_id from user_tenants where user_id = auth.uid()));
 
 create policy "Users can update contacts"
   on contacts for update
   to authenticated
-  using (
-    is_internal_org = false
-    or internal_organization_id in (select public.user_organization_ids())
-  )
-  with check (
-    is_internal_org = false
-    or internal_organization_id in (select public.user_organization_ids())
-  );
+  using (tenant_id in (select tenant_id from user_tenants where user_id = auth.uid()))
+  with check (tenant_id in (select tenant_id from user_tenants where user_id = auth.uid()));
 
 -- ARTICLES
 create policy "Users can view articles"

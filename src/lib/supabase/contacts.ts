@@ -34,7 +34,7 @@ export async function getContact(id: string): Promise<Contact | null> {
   return data
 }
 
-export async function createContact(contact: Omit<Contact, "id" | "created_at">): Promise<Contact> {
+export async function createContact(contact: Omit<Contact, "id" | "created_at" | "is_internal_org">): Promise<Contact> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("contacts")

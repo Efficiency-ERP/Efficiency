@@ -52,11 +52,16 @@ create table if not exists organizations (
 
 -- party_type is free text (not an enum) so contacts can be tagged with any
 -- custom type (e.g. "Distributeur", "Transporteur") via the "Other..." option.
+-- Scoped by tenant_id, not shared globally; is_internal_org is derived from
+-- internal_organization_id rather than an independently-settable flag, and
+-- contacts_internal_org_tenant_check() below guarantees that FK can never
+-- point at an org outside the contact's own tenant.
 create table if not exists contacts (
   id uuid primary key default uuid_generate_v4(),
   party_type text not null default 'customer',
-  is_internal_org boolean default false,
+  tenant_id uuid not null references tenants(id),
   internal_organization_id uuid references organizations(id) on delete set null,
+  is_internal_org boolean generated always as (internal_organization_id is not null) stored,
   company_name text not null,
   mf text,
   unique_id text,
@@ -270,6 +275,7 @@ create table if not exists document_counters (
 
 create index if not exists idx_contacts_company_name on contacts(company_name);
 create index if not exists idx_contacts_internal_org on contacts(internal_organization_id);
+create index if not exists idx_contacts_tenant on contacts(tenant_id);
 create index if not exists idx_articles_code on articles(code);
 create index if not exists idx_articles_organization on articles(organization_id);
 create index if not exists idx_documents_organization on documents(organization_id);
@@ -350,3 +356,26 @@ create trigger documents_no_update_invoice
   for each row
   when (OLD.kind = 'invoice')
   execute function forbid_invoice_mutation();
+
+-- Guarantees a contact's internal_organization_id can never point at an org
+-- outside the contact's own tenant_id.
+create or replace function public.contacts_internal_org_tenant_check()
+returns trigger as $$
+begin
+  if new.internal_organization_id is not null then
+    if not exists (
+      select 1 from organizations o
+      where o.id = new.internal_organization_id
+        and o.tenant_id = new.tenant_id
+    ) then
+      raise exception 'internal_organization_id must belong to the contact''s own tenant';
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists contacts_internal_org_tenant_trigger on contacts;
+create trigger contacts_internal_org_tenant_trigger
+  before insert or update on contacts
+  for each row execute function public.contacts_internal_org_tenant_check();
