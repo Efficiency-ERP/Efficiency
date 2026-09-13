@@ -51,7 +51,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [manualNumber, setManualNumber] = useState("")
   const [originalInvoiceId, setOriginalInvoiceId] = useState("")
   const [notes, setNotes] = useState("")
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_excl_tax: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [prefilling, setPrefilling] = useState(isInferredFlow)
@@ -87,7 +87,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           designation: l.designation,
           unit: l.unit,
           quantity: l.quantity,
-          unit_price_puht: l.unit_price_puht,
+          unit_price_excl_tax: l.unit_price_excl_tax,
           transfer_price: 0,
           tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
           article_id: l.article_id,
@@ -99,7 +99,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             .filter((c) => c.source_line_id === l.id)
             .map((c) => ({ packaging_type: c.packaging_type, units_per_article: c.units_per_article, quantity: c.quantity, deposit_value: c.deposit_value, total: c.total })),
         })))
-        setDirection(original.direction)
+        setDirection(original.direction || "in")
         setSourceLabel(`invoice ${original.number}`)
       } catch (err) {
         console.error(err)
@@ -125,7 +125,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             designation: l.designation,
             unit: l.unit,
             quantity: l.quantity,
-            unit_price_puht: l.unit_price ?? 0,
+            unit_price_excl_tax: l.unit_price_excl_tax ?? 0,
             transfer_price: 0,
             tax_charges: defaultTaxCharges(),
             article_id: null,
@@ -151,7 +151,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               designation: l.designation,
               unit: l.unit,
               quantity: l.quantity,
-              unit_price_puht: l.unit_price_puht,
+              unit_price_excl_tax: l.unit_price_excl_tax,
               transfer_price: 0,
               tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(l.tax_charges)),
               article_id: l.article_id,
@@ -179,7 +179,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       designation: article.designation,
       unit: article.unit,
       quantity: 1,
-      unit_price_puht: article.unit_price_puht,
+      unit_price_excl_tax: article.unit_price_puht,
       transfer_price: article.transfer_price,
       tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),
       article_id: article.id,
@@ -188,7 +188,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   }
 
   const addFreeformLine = () => {
-    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null, consignments: [] }])
+    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_excl_tax: 0, transfer_price: 0, tax_charges: defaultTaxCharges(), article_id: null, consignments: [] }])
   }
 
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => {
@@ -243,8 +243,8 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         designation: l.designation,
         unit: l.unit,
         quantity: l.quantity,
-        unit_price_puht: l.unit_price_puht,
-        remise_percent: 0,
+        unit_price_excl_tax: l.unit_price_excl_tax,
+        discount_percent: 0,
         tax_charges: l.tax_charges as unknown as Json,
         transfer_price: l.transfer_price,
         consignments: l.consignments,
@@ -449,7 +449,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                         <td className="p-1"><Input value={line.designation} onChange={(e) => updateLine(i, { designation: e.target.value })} className="h-8" /></td>
                         <td className="p-1"><Input type="number" value={line.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
                         <td className="p-1"><Input value={line.unit || ""} onChange={(e) => updateLine(i, { unit: e.target.value || null })} className="h-8 w-20" /></td>
-                        <td className="p-1"><Input type="number" step="0.01" value={line.unit_price_puht} onChange={(e) => updateLine(i, { unit_price_puht: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
+                        <td className="p-1"><Input type="number" step="0.01" value={line.unit_price_excl_tax} onChange={(e) => updateLine(i, { unit_price_excl_tax: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
                         <td className="p-1">
                           <Button type="button" variant="outline" size="sm" onClick={() => setExpandedLine(expandedLine === i ? null : i)}>
                             {formatTaxCharges(line.tax_charges)}
@@ -515,11 +515,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         <Card>
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.htSubtotal.toFixed(2)} TND</span></div>
+            <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.subtotal_excl_tax.toFixed(2)} TND</span></div>
             {Object.entries(totals.chargesByKey).map(([key, amount]) => (
               <div key={key} className="flex justify-between"><span>{key}:</span><span>{amount.toFixed(2)} TND</span></div>
             ))}
-            <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.ttc.toFixed(2)} TND</span></div>
+            <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.total_incl_tax.toFixed(2)} TND</span></div>
           </CardContent>
         </Card>
 

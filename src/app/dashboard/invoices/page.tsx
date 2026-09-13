@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { getInvoices, correctionSign, netCashFlow } from "@/lib/supabase/invoices"
-import type { Invoice, InvoiceTotals } from "@/types/database"
+import type { Invoice, InvoiceTotals, InvoiceType } from "@/types/database"
 
 export default function AllInvoicesPage() {
   const router = useRouter()
@@ -41,14 +41,14 @@ export default function AllInvoicesPage() {
         const q = search.toLowerCase()
         if (!inv.number.toLowerCase().includes(q)) return false
       }
-      if (typeFilter !== "all" && inv.type !== typeFilter) return false
+      if (typeFilter !== "all" && inv.subtype !== typeFilter) return false
       return true
     })
   }, [invoices, search, typeFilter])
 
   const totalCount = invoices.length
-  const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + correctionSign(i.type) * ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
-  const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + correctionSign(i.type) * ((castJson<InvoiceTotals>(i.totals)).ttc || 0), 0)
+  const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + correctionSign((i.subtype as InvoiceType) || "standard") * ((castJson<InvoiceTotals>(i.totals)).total_incl_tax || 0), 0)
+  const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + correctionSign((i.subtype as InvoiceType) || "standard") * ((castJson<InvoiceTotals>(i.totals)).total_incl_tax || 0), 0)
 
   if (loading) return <div className="text-muted-foreground">Loading invoices...</div>
 
@@ -106,7 +106,7 @@ export default function AllInvoicesPage() {
                     </button>
                   </td>
                   <td className="p-3">{inv.date}</td>
-                  <td className="p-3"><Badge variant="outline">{inv.type}</Badge></td>
+                  <td className="p-3"><Badge variant="outline">{inv.subtype}</Badge></td>
                   <td className={`p-3 text-right font-medium ${flow >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                     {flow >= 0 ? "+" : ""}{formatTND(flow)}
                   </td>

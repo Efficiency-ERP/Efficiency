@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/client"
 import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
 import { castJson } from "@/lib/utils"
-import type { Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance, ConsignmentPackaging, Consignment, Delivery, DeliveryLine, Order, OrderLine, Issue, IssueLine, Quote, QuoteLine, TaxCharge, InvoiceTotals } from "@/types/database"
+import type {
+  Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance,
+  ConsignmentPackaging, Consignment, Delivery, DeliveryLine, Order, OrderLine, OrderType, Issue, IssueLine,
+  Quote, QuoteLine, QuoteStatus, DocumentStatus, TaxCharge, InvoiceTotals, DocumentAttributes, CounterpartyKind, PaymentMethod,
+} from "@/types/database"
 
 // ============================================
 // DOCUMENT NUMBERING
@@ -42,7 +46,8 @@ export function correctionSign(type: InvoiceType): 1 | -1 {
 // invoice list, not for the Money In/Money Out totals (those stay
 // separate per-direction sums of magnitude, filtered by direction first).
 export function netCashFlow(invoice: Invoice): number {
-  const magnitude = correctionSign(invoice.type) * (castJson<InvoiceTotals>(invoice.totals).ttc || 0)
+  const type = (invoice.subtype as InvoiceType) || "standard"
+  const magnitude = correctionSign(type) * (castJson<InvoiceTotals>(invoice.totals).total_incl_tax || 0)
   return invoice.direction === "out" ? -magnitude : magnitude
 }
 
@@ -50,9 +55,18 @@ export function netCashFlow(invoice: Invoice): number {
 // QUOTES
 // ============================================
 
+type QuoteInput = {
+  number: string
+  date?: string
+  organization_id: string
+  counterparty_id: string
+  status?: QuoteStatus
+  notes?: string | null
+}
+
 export async function getQuotes(organizationId?: string): Promise<Quote[]> {
   const supabase = createClient()
-  let query = supabase.from("quotes").select("*").order("date", { ascending: false })
+  let query = supabase.from("documents").select("*").eq("kind", "quote").order("date", { ascending: false })
   if (organizationId) query = query.eq("organization_id", organizationId)
   const { data, error } = await query
   if (error) throw error
@@ -61,33 +75,47 @@ export async function getQuotes(organizationId?: string): Promise<Quote[]> {
 
 export async function getQuote(id: string): Promise<Quote | null> {
   const supabase = createClient()
-  const { data, error } = await supabase.from("quotes").select("*").eq("id", id).single()
+  const { data, error } = await supabase.from("documents").select("*").eq("id", id).eq("kind", "quote").single()
   if (error) throw error
   return data
 }
 
 export async function getQuoteLines(quoteId: string): Promise<QuoteLine[]> {
   const supabase = createClient()
-  const { data, error } = await supabase.from("quote_lines").select("*").eq("quote_id", quoteId)
+  const { data, error } = await supabase.from("document_lines").select("*").eq("document_id", quoteId)
   if (error) throw error
   return data || []
 }
 
 export async function createQuote(
-  quote: Omit<Quote, "id" | "created_at" | "totals">,
-  lines: Omit<QuoteLine, "id" | "quote_id">[]
+  quote: QuoteInput,
+  lines: Omit<QuoteLine, "id" | "document_id">[]
 ): Promise<Quote> {
   const supabase = createClient()
 
   const totals = computeInvoiceTotals(lines.map((l) => ({ ...l, tax_charges: l.tax_charges as unknown as TaxCharge[] })))
 
-  const { data: q, error: qError } = await supabase.from("quotes").insert({ ...quote, totals }).select().single()
+  const { data: q, error: qError } = await supabase
+    .from("documents")
+    .insert({
+      kind: "quote",
+      flow: "sale",
+      number: quote.number,
+      date: quote.date,
+      organization_id: quote.organization_id,
+      counterparty_id: quote.counterparty_id,
+      status: quote.status || "draft",
+      notes: quote.notes,
+      totals,
+    })
+    .select()
+    .single()
   if (qError) throw qError
 
   if (lines.length > 0) {
     const { error: linesError } = await supabase
-      .from("quote_lines")
-      .insert(lines.map((l) => ({ ...l, quote_id: q.id })))
+      .from("document_lines")
+      .insert(lines.map((l) => ({ ...l, document_id: q.id })))
     if (linesError) throw linesError
   }
 
@@ -95,12 +123,17 @@ export async function createQuote(
 }
 
 // Whether a quote has been invoiced is always a derived lookup (does any
-// invoice reference it via source_quote_id) — never gated on quotes.status,
+// invoice reference it via source_document_id) — never gated on quotes.status,
 // which is reserved for genuine human-decision states (draft/sent/rejected)
 // and is not itself the link.
 export async function getInvoiceBySourceQuote(quoteId: string): Promise<Invoice | null> {
   const supabase = createClient()
-  const { data, error } = await supabase.from("invoices").select("*").eq("source_quote_id", quoteId).maybeSingle()
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("kind", "invoice")
+    .eq("source_document_id", quoteId)
+    .maybeSingle()
   if (error) throw error
   return data
 }
@@ -110,7 +143,7 @@ export async function getInvoiceBySourceQuote(quoteId: string): Promise<Invoice 
 // mutable, so this is the only place a quote's status changes.
 export async function markQuoteAccepted(quoteId: string): Promise<Quote> {
   const supabase = createClient()
-  const { data, error } = await supabase.from("quotes").update({ status: "accepted" }).eq("id", quoteId).select().single()
+  const { data, error } = await supabase.from("documents").update({ status: "accepted" }).eq("id", quoteId).select().single()
   if (error) throw error
   return data
 }
@@ -119,12 +152,26 @@ export async function markQuoteAccepted(quoteId: string): Promise<Quote> {
 // INVOICES
 // ============================================
 
+type InvoiceInput = {
+  number: string
+  date?: string
+  due_date?: string | null
+  organization_id: string
+  counterparty_id: string
+  type: InvoiceType
+  direction: InvoiceDirection
+  payment_method?: PaymentMethod | null
+  counterparty_kind?: CounterpartyKind
+  source_quote_id?: string | null
+  source_order_id?: string | null
+  source_delivery_id?: string | null
+  original_invoice_id?: string | null
+  notes?: string | null
+}
+
 export async function getInvoices(organizationId?: string): Promise<Invoice[]> {
   const supabase = createClient()
-  let query = supabase
-    .from("invoices")
-    .select("*")
-    .order("date", { ascending: false })
+  let query = supabase.from("documents").select("*").eq("kind", "invoice").order("date", { ascending: false })
 
   if (organizationId) {
     query = query.eq("organization_id", organizationId)
@@ -137,25 +184,21 @@ export async function getInvoices(organizationId?: string): Promise<Invoice[]> {
 
 export async function getInvoice(id: string): Promise<Invoice | null> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("invoices")
-    .select("*")
-    .eq("id", id)
-    .single()
-
+  const { data, error } = await supabase.from("documents").select("*").eq("id", id).eq("kind", "invoice").single()
   if (error) throw error
   return data
 }
 
 // Credit/debit notes reference the invoice they correct via
-// original_invoice_id — never the reverse — so an invoice can have more
+// source_document_id — never the reverse — so an invoice can have more
 // than one correction over time (e.g. partial credits on different lines).
 export async function getCorrectionsForInvoice(invoiceId: string): Promise<Invoice[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("invoices")
+    .from("documents")
     .select("*")
-    .eq("original_invoice_id", invoiceId)
+    .eq("kind", "invoice")
+    .eq("source_document_id", invoiceId)
     .order("created_at", { ascending: false })
 
   if (error) throw error
@@ -165,9 +208,9 @@ export async function getCorrectionsForInvoice(invoiceId: string): Promise<Invoi
 export async function getInvoiceLines(invoiceId: string): Promise<InvoiceLine[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("invoice_lines")
+    .from("document_lines")
     .select("*")
-    .eq("invoice_id", invoiceId)
+    .eq("document_id", invoiceId)
 
   if (error) throw error
   return data || []
@@ -178,7 +221,7 @@ export async function getConsignments(invoiceId: string): Promise<ConsignmentLin
   const { data, error } = await supabase
     .from("consignment_lines")
     .select("*")
-    .eq("invoice_id", invoiceId)
+    .eq("document_id", invoiceId)
 
   if (error) throw error
   return data || []
@@ -226,7 +269,7 @@ export async function createConsignmentReturn(
     const quantity = -Math.abs(l.quantity)
     return {
       ...entry,
-      invoice_id: null,
+      document_id: null,
       source_line_id: null,
       packaging_type: l.packaging_type,
       units_per_article: l.units_per_article,
@@ -254,8 +297,8 @@ export type ConsignmentCharge = Pick<ConsignmentLine, "packaging_type" | "units_
 // so line ids are generated client-side up front rather than insert-then-
 // -relink, letting both tables be inserted from data we already have.
 export async function createInvoice(
-  invoice: Omit<Invoice, "id" | "created_at" | "totals">,
-  lines: (Omit<InvoiceLine, "id" | "invoice_id"> & {
+  invoice: InvoiceInput,
+  lines: (Omit<InvoiceLine, "id" | "document_id"> & {
     transfer_price?: number
     consignments?: ConsignmentCharge[]
   })[]
@@ -264,9 +307,31 @@ export async function createInvoice(
 
   const totals = computeInvoiceTotals(lines.map((l) => ({ ...l, tax_charges: l.tax_charges as unknown as TaxCharge[] })))
 
+  const flow: "sale" | "purchase" =
+    invoice.source_quote_id ? "sale" : invoice.source_order_id ? "purchase" : invoice.direction === "in" ? "sale" : "purchase"
+
+  const attributes: DocumentAttributes = {
+    payment_method: invoice.payment_method ?? null,
+    counterparty_kind: invoice.counterparty_kind || "contact",
+  }
+
   const { data: inv, error: invError } = await supabase
-    .from("invoices")
-    .insert({ ...invoice, totals })
+    .from("documents")
+    .insert({
+      kind: "invoice",
+      subtype: invoice.type,
+      flow,
+      direction: invoice.direction,
+      number: invoice.number,
+      date: invoice.date,
+      due_date: invoice.due_date,
+      organization_id: invoice.organization_id,
+      counterparty_id: invoice.counterparty_id,
+      source_document_id: invoice.source_quote_id || invoice.source_order_id || invoice.source_delivery_id || invoice.original_invoice_id || null,
+      attributes,
+      notes: invoice.notes,
+      totals,
+    })
     .select()
     .single()
 
@@ -276,15 +341,15 @@ export async function createInvoice(
     const linesWithIds = lines.map((l) => ({ ...l, id: crypto.randomUUID() }))
 
     const { error: linesError } = await supabase
-      .from("invoice_lines")
-      .insert(linesWithIds.map(({ transfer_price: _transferPrice, consignments: _consignments, ...l }) => ({ ...l, invoice_id: inv.id })))
+      .from("document_lines")
+      .insert(linesWithIds.map(({ transfer_price: _transferPrice, consignments: _consignments, ...l }) => ({ ...l, document_id: inv.id })))
 
     if (linesError) throw linesError
 
     const consignmentRows = linesWithIds.flatMap((l) =>
       (l.consignments || []).map((c) => ({
         ...c,
-        invoice_id: inv.id,
+        document_id: inv.id,
         source_line_id: l.id,
         organization_id: null,
         counterparty_id: null,
@@ -382,12 +447,20 @@ export function coveredQuantity(consignments: Pick<ConsignmentCharge, "units_per
 // DELIVERIES
 // ============================================
 
+type DeliveryInput = {
+  number: string
+  date?: string
+  organization_id: string
+  counterparty_id: string
+  driver_name?: string | null
+  vehicle_registration?: string | null
+  status?: DocumentStatus
+  source_quote_id?: string | null
+}
+
 export async function getDeliveries(organizationId?: string): Promise<Delivery[]> {
   const supabase = createClient()
-  let query = supabase
-    .from("deliveries")
-    .select("*")
-    .order("date", { ascending: false })
+  let query = supabase.from("documents").select("*").eq("kind", "delivery").order("date", { ascending: false })
 
   if (organizationId) {
     query = query.eq("organization_id", organizationId)
@@ -400,13 +473,14 @@ export async function getDeliveries(organizationId?: string): Promise<Delivery[]
 
 // A quote can reasonably produce more than one delivery over time (partial
 // shipments), so this returns all of them via the derived link
-// (deliveries.source_quote_id) rather than a single stored pointer.
+// (deliveries.source_document_id) rather than a single stored pointer.
 export async function getDeliveriesBySourceQuote(quoteId: string): Promise<Delivery[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("deliveries")
+    .from("documents")
     .select("*")
-    .eq("source_quote_id", quoteId)
+    .eq("kind", "delivery")
+    .eq("source_document_id", quoteId)
     .order("date", { ascending: false })
 
   if (error) throw error
@@ -415,12 +489,7 @@ export async function getDeliveriesBySourceQuote(quoteId: string): Promise<Deliv
 
 export async function getDelivery(id: string): Promise<Delivery | null> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("deliveries")
-    .select("*")
-    .eq("id", id)
-    .single()
-
+  const { data, error } = await supabase.from("documents").select("*").eq("id", id).eq("kind", "delivery").single()
   if (error) throw error
   return data
 }
@@ -428,23 +497,40 @@ export async function getDelivery(id: string): Promise<Delivery | null> {
 export async function getDeliveryLines(deliveryId: string): Promise<DeliveryLine[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("delivery_lines")
+    .from("document_lines")
     .select("*")
-    .eq("delivery_id", deliveryId)
+    .eq("document_id", deliveryId)
 
   if (error) throw error
   return data || []
 }
 
+type DeliveryLineInput = Pick<DeliveryLine, "article_id" | "code" | "designation" | "unit" | "quantity">
+
 export async function createDelivery(
-  delivery: Omit<Delivery, "id" | "created_at">,
-  lines: Omit<DeliveryLine, "id" | "delivery_id">[]
+  delivery: DeliveryInput,
+  lines: DeliveryLineInput[]
 ): Promise<{ delivery: Delivery; updatedArticles: Article[] }> {
   const supabase = createClient()
 
+  const attributes: DocumentAttributes = {
+    driver_name: delivery.driver_name ?? null,
+    vehicle_registration: delivery.vehicle_registration ?? null,
+  }
+
   const { data: del, error: delError } = await supabase
-    .from("deliveries")
-    .insert(delivery)
+    .from("documents")
+    .insert({
+      kind: "delivery",
+      flow: "sale",
+      number: delivery.number,
+      date: delivery.date,
+      organization_id: delivery.organization_id,
+      counterparty_id: delivery.counterparty_id,
+      status: delivery.status || "draft",
+      source_document_id: delivery.source_quote_id,
+      attributes,
+    })
     .select()
     .single()
 
@@ -452,8 +538,8 @@ export async function createDelivery(
 
   if (lines.length > 0) {
     const { error: linesError } = await supabase
-      .from("delivery_lines")
-      .insert(lines.map((l) => ({ ...l, delivery_id: del.id })))
+      .from("document_lines")
+      .insert(lines.map((l) => ({ ...l, document_id: del.id, unit_price_excl_tax: 0, discount_percent: 0, tax_charges: [], consignments: [] })))
 
     if (linesError) throw linesError
   }
@@ -467,12 +553,18 @@ export async function createDelivery(
 // ORDERS
 // ============================================
 
+type OrderInput = {
+  number: string
+  date?: string
+  organization_id: string
+  counterparty_id: string
+  type: OrderType
+  status?: DocumentStatus
+}
+
 export async function getOrders(organizationId?: string): Promise<Order[]> {
   const supabase = createClient()
-  let query = supabase
-    .from("orders")
-    .select("*")
-    .order("date", { ascending: false })
+  let query = supabase.from("documents").select("*").eq("kind", "order").order("date", { ascending: false })
 
   if (organizationId) {
     query = query.eq("organization_id", organizationId)
@@ -485,12 +577,7 @@ export async function getOrders(organizationId?: string): Promise<Order[]> {
 
 export async function getOrder(id: string): Promise<Order | null> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("id", id)
-    .single()
-
+  const { data, error } = await supabase.from("documents").select("*").eq("id", id).eq("kind", "order").single()
   if (error) throw error
   return data
 }
@@ -498,23 +585,37 @@ export async function getOrder(id: string): Promise<Order | null> {
 export async function getOrderLines(orderId: string): Promise<OrderLine[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("order_lines")
+    .from("document_lines")
     .select("*")
-    .eq("order_id", orderId)
+    .eq("document_id", orderId)
 
   if (error) throw error
   return data || []
 }
 
+type OrderLineInput = Pick<OrderLine, "code" | "designation" | "unit" | "quantity"> & {
+  article_id?: string | null
+  unit_price_excl_tax?: number | null
+}
+
 export async function createOrder(
-  order: Omit<Order, "id" | "created_at">,
-  lines: Omit<OrderLine, "id" | "order_id">[]
+  order: OrderInput,
+  lines: OrderLineInput[]
 ): Promise<Order> {
   const supabase = createClient()
 
   const { data: ord, error: ordError } = await supabase
-    .from("orders")
-    .insert(order)
+    .from("documents")
+    .insert({
+      kind: "order",
+      subtype: order.type,
+      flow: order.type === "customer" ? "sale" : "purchase",
+      number: order.number,
+      date: order.date,
+      organization_id: order.organization_id,
+      counterparty_id: order.counterparty_id,
+      status: order.status || "draft",
+    })
     .select()
     .single()
 
@@ -522,8 +623,19 @@ export async function createOrder(
 
   if (lines.length > 0) {
     const { error: linesError } = await supabase
-      .from("order_lines")
-      .insert(lines.map((l) => ({ ...l, order_id: ord.id })))
+      .from("document_lines")
+      .insert(lines.map((l) => ({
+        code: l.code,
+        designation: l.designation,
+        unit: l.unit,
+        quantity: l.quantity,
+        article_id: l.article_id ?? null,
+        unit_price_excl_tax: l.unit_price_excl_tax ?? 0,
+        discount_percent: 0,
+        tax_charges: [],
+        consignments: [],
+        document_id: ord.id,
+      })))
 
     if (linesError) throw linesError
   }
@@ -532,28 +644,35 @@ export async function createOrder(
 }
 
 // Whether an order has been invoiced is always a derived lookup (does any
-// invoice reference it via source_order_id), never a stored pointer on the
-// order — same rule as Quote→Invoice/Quote→Delivery, and correctly allows
-// more than one invoice per order later (partial invoicing, corrections).
+// invoice reference it via source_document_id), never a stored pointer on
+// the order — same rule as Quote->Invoice/Quote->Delivery, and correctly
+// allows more than one invoice per order later (partial invoicing,
+// corrections).
 export async function getInvoiceBySourceOrder(orderId: string): Promise<Invoice | null> {
   const supabase = createClient()
-  const { data, error } = await supabase.from("invoices").select("*").eq("source_order_id", orderId).maybeSingle()
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("kind", "invoice")
+    .eq("source_document_id", orderId)
+    .maybeSingle()
   if (error) throw error
   return data
 }
 
 // Marks an order final once its resulting invoice has actually been saved
 // (see the invoice create form's sourceOrderId prefill flow) — a plain
-// status flip, not the link itself (that's invoices.source_order_id).
+// status flip, not the link itself (that's documents.source_document_id).
 export async function markOrderFinal(orderId: string): Promise<Order> {
   const supabase = createClient()
-  const { data, error } = await supabase.from("orders").update({ status: "final" }).eq("id", orderId).select().single()
+  const { data, error } = await supabase.from("documents").update({ status: "final" }).eq("id", orderId).select().single()
   if (error) throw error
   return data
 }
 
 // ============================================
-// ISSUES
+// ISSUES — not part of the documents merge (stock-only, never touches
+// money), so this stays exactly as before, querying its own tables.
 // ============================================
 
 export async function getIssues(organizationId?: string): Promise<Issue[]> {
@@ -595,9 +714,13 @@ export async function getIssueLines(issueId: string): Promise<IssueLine[]> {
   return data || []
 }
 
+type IssueLineInput = Pick<IssueLine, "code" | "designation" | "unit" | "quantity"> & {
+  article_id?: string | null
+}
+
 export async function createIssue(
   issue: Omit<Issue, "id" | "created_at">,
-  lines: Omit<IssueLine, "id" | "issue_id">[]
+  lines: IssueLineInput[]
 ): Promise<Issue> {
   const supabase = createClient()
 
@@ -612,7 +735,7 @@ export async function createIssue(
   if (lines.length > 0) {
     const { error: linesError } = await supabase
       .from("issue_lines")
-      .insert(lines.map((l) => ({ ...l, issue_id: iss.id })))
+      .insert(lines.map((l) => ({ ...l, article_id: l.article_id ?? null, issue_id: iss.id })))
 
     if (linesError) throw linesError
   }
@@ -625,22 +748,22 @@ export async function createIssue(
 // ============================================
 
 export function computeInvoiceTotals(lines: {
-  unit_price_puht: number
-  remise_percent?: number | null
+  unit_price_excl_tax: number
+  discount_percent?: number | null
   quantity: number
   transfer_price?: number | null
   tax_charges: TaxCharge[]
 }[]) {
-  let htSubtotal = 0
+  let subtotalExclTax = 0
   const chargesByKey: Record<string, number> = {}
-  let ttc = 0
+  let totalInclTax = 0
 
   for (const line of lines) {
-    const remise = line.remise_percent ? (line.unit_price_puht * line.remise_percent) / 100 : 0
-    const ht = (line.unit_price_puht - remise) * line.quantity
+    const discount = line.discount_percent ? (line.unit_price_excl_tax * line.discount_percent) / 100 : 0
+    const ht = (line.unit_price_excl_tax - discount) * line.quantity
     const transferAmount = (line.transfer_price || 0) * line.quantity
 
-    htSubtotal += ht
+    subtotalExclTax += ht
 
     let cumulative = ht
     let lineTotal = ht
@@ -652,8 +775,8 @@ export function computeInvoiceTotals(lines: {
       cumulative += amount
       lineTotal += amount
     }
-    ttc += lineTotal
+    totalInclTax += lineTotal
   }
 
-  return { htSubtotal, chargesByKey, ttc }
+  return { subtotal_excl_tax: subtotalExclTax, chargesByKey, total_incl_tax: totalInclTax }
 }

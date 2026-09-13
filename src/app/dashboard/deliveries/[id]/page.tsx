@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getDelivery, getDeliveryLines } from "@/lib/supabase/invoices"
-import type { Delivery, DeliveryLine } from "@/types/database"
+import { castJson } from "@/lib/utils"
+import type { Delivery, DeliveryLine, DocumentAttributes } from "@/types/database"
 
 export default function DeliveryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -61,8 +62,8 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Status:</span> <Badge>{delivery.status}</Badge></div>
-          {delivery.driver_name && <div><span className="text-muted-foreground">Driver:</span> {delivery.driver_name}</div>}
-          {delivery.vehicle_registration && <div><span className="text-muted-foreground">Vehicle:</span> {delivery.vehicle_registration}</div>}
+          {castJson<DocumentAttributes>(delivery.attributes).driver_name && <div><span className="text-muted-foreground">Driver:</span> {castJson<DocumentAttributes>(delivery.attributes).driver_name}</div>}
+          {castJson<DocumentAttributes>(delivery.attributes).vehicle_registration && <div><span className="text-muted-foreground">Vehicle:</span> {castJson<DocumentAttributes>(delivery.attributes).vehicle_registration}</div>}
         </CardContent>
       </Card>
 

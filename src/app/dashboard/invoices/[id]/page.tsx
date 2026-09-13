@@ -11,7 +11,7 @@ import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { DocumentAttachments } from "@/components/document-attachments"
 import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice } from "@/lib/supabase/invoices"
-import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge } from "@/types/database"
+import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge, DocumentAttributes } from "@/types/database"
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -34,7 +34,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             getInvoiceLines(inv.id),
             getConsignments(inv.id),
             getCorrectionsForInvoice(inv.id),
-            inv.original_invoice_id ? getInvoice(inv.original_invoice_id) : Promise.resolve(null),
+            inv.subtype !== "standard" && inv.source_document_id ? getInvoice(inv.source_document_id) : Promise.resolve(null),
           ])
           setLines(lns)
           setConsignments(cons)
@@ -72,7 +72,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-muted-foreground">{invoice.date}</p>
         </div>
         <div className="flex gap-2">
-          {invoice.type === "standard" && (
+          {invoice.subtype === "standard" && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary">Add Note</Button>
@@ -92,10 +92,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Émetteur:</span> {issuingOrg?.name || "N/A"}</div>
           <div><span className="text-muted-foreground">{invoice.direction === "in" ? "Client" : "Fournisseur"}:</span> {counterparty?.company_name || "N/A"}</div>
-          <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{invoice.type}</Badge></div>
+          <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{invoice.subtype}</Badge></div>
           <div><span className="text-muted-foreground">Sale/Purchase:</span> <Badge variant={invoice.direction === "in" ? "default" : "destructive"}>{invoice.direction === "in" ? "Sale" : "Purchase"}</Badge></div>
           <div><span className="text-muted-foreground">Due Date:</span> {invoice.due_date || "N/A"}</div>
-          <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(invoice.payment_method)}</div>
+          <div><span className="text-muted-foreground">Mode de paiement:</span> {paymentMethodLabel(castJson<DocumentAttributes>(invoice.attributes).payment_method)}</div>
           {originalInvoice && (
             <div>
               <span className="text-muted-foreground">Corrects invoice:</span>{" "}
@@ -121,7 +121,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   <td className="p-2">{line.designation}</td>
                   <td className="p-2 text-right">{line.quantity}</td>
                   <td className="p-2">{line.unit || "-"}</td>
-                  <td className="p-2 text-right">{line.unit_price_puht}</td>
+                  <td className="p-2 text-right">{line.unit_price_excl_tax}</td>
                   <td className="p-2">{formatTaxCharges(castJson<TaxCharge[]>(line.tax_charges))}</td>
                 </tr>
               ))}
@@ -155,11 +155,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       <Card>
         <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between"><span>HT Subtotal:</span><span>{formatTND(totals.htSubtotal || 0)}</span></div>
+          <div className="flex justify-between"><span>HT Subtotal:</span><span>{formatTND(totals.subtotal_excl_tax || 0)}</span></div>
           {Object.entries(totals.chargesByKey || {}).map(([key, amount]) => (
             <div key={key} className="flex justify-between"><span>{key}:</span><span>{formatTND(amount)}</span></div>
           ))}
-          <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
+          <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.total_incl_tax || 0)}</span></div>
         </CardContent>
       </Card>
 
@@ -181,10 +181,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                           {c.number}
                         </button>
                       </td>
-                      <td className="p-2"><Badge variant="outline">{c.type}</Badge></td>
+                      <td className="p-2"><Badge variant="outline">{c.subtype}</Badge></td>
                       <td className="p-2">{c.date}</td>
-                      <td className={`p-2 text-right font-medium ${c.type === "credit" ? "text-red-600" : "text-emerald-600"}`}>
-                        {c.type === "credit" ? "-" : "+"}{formatTND(cTotals.ttc || 0)}
+                      <td className={`p-2 text-right font-medium ${c.subtype === "credit" ? "text-red-600" : "text-emerald-600"}`}>
+                        {c.subtype === "credit" ? "-" : "+"}{formatTND(cTotals.total_incl_tax || 0)}
                       </td>
                     </tr>
                   )

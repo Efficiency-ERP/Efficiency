@@ -105,7 +105,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                   <td className="p-2">{line.designation}</td>
                   <td className="p-2 text-right">{line.quantity}</td>
                   <td className="p-2">{line.unit || "-"}</td>
-                  <td className="p-2 text-right">{line.unit_price_puht}</td>
+                  <td className="p-2 text-right">{line.unit_price_excl_tax}</td>
                   <td className="p-2">{formatTaxCharges(castJson<TaxCharge[]>(line.tax_charges))}</td>
                 </tr>
               ))}
@@ -117,11 +117,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       <Card>
         <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between"><span>HT Subtotal:</span><span>{formatTND(totals.htSubtotal || 0)}</span></div>
+          <div className="flex justify-between"><span>HT Subtotal:</span><span>{formatTND(totals.subtotal_excl_tax || 0)}</span></div>
           {Object.entries(totals.chargesByKey || {}).map(([key, amount]) => (
             <div key={key} className="flex justify-between"><span>{key}:</span><span>{formatTND(amount)}</span></div>
           ))}
-          <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.ttc || 0)}</span></div>
+          <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.total_incl_tax || 0)}</span></div>
         </CardContent>
       </Card>
 

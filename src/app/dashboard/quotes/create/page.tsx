@@ -31,7 +31,7 @@ export default function CreateQuotePage() {
   const [counterpartyId, setCounterpartyId] = useState("")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState("")
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_puht: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
+  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_excl_tax: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -43,7 +43,7 @@ export default function CreateQuotePage() {
       designation: article.designation,
       unit: article.unit,
       quantity: 1,
-      unit_price_puht: article.unit_price_puht,
+      unit_price_excl_tax: article.unit_price_puht,
       tax_charges: cloneTaxCharges(castJson<TaxCharge[]>(article.tax_charges)),
       article_id: article.id,
       consignments: consignmentsForLine(article, 1),
@@ -51,7 +51,7 @@ export default function CreateQuotePage() {
   }
 
   const addFreeformLine = () => {
-    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_puht: 0, tax_charges: defaultTaxCharges(), article_id: null, consignments: [] }])
+    setLines([...lines, { code: "", designation: "", unit: null, quantity: 1, unit_price_excl_tax: 0, tax_charges: defaultTaxCharges(), article_id: null, consignments: [] }])
   }
 
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => {
@@ -102,8 +102,8 @@ export default function CreateQuotePage() {
         designation: l.designation,
         unit: l.unit,
         quantity: l.quantity,
-        unit_price_puht: l.unit_price_puht,
-        remise_percent: 0,
+        unit_price_excl_tax: l.unit_price_excl_tax,
+        discount_percent: 0,
         tax_charges: l.tax_charges as unknown as Json,
         consignments: l.consignments as unknown as Json,
       }))
@@ -218,7 +218,7 @@ export default function CreateQuotePage() {
                         <td className="p-1"><Input value={line.designation} onChange={(e) => updateLine(i, { designation: e.target.value })} className="h-8" /></td>
                         <td className="p-1"><Input type="number" value={line.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td>
                         <td className="p-1"><Input value={line.unit || ""} onChange={(e) => updateLine(i, { unit: e.target.value || null })} className="h-8 w-20" /></td>
-                        <td className="p-1"><Input type="number" step="0.01" value={line.unit_price_puht} onChange={(e) => updateLine(i, { unit_price_puht: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
+                        <td className="p-1"><Input type="number" step="0.01" value={line.unit_price_excl_tax} onChange={(e) => updateLine(i, { unit_price_excl_tax: Number(e.target.value) })} className="h-8 w-24 text-right" /></td>
                         <td className="p-1">
                           <Button type="button" variant="outline" size="sm" onClick={() => setExpandedLine(expandedLine === i ? null : i)}>
                             {formatTaxCharges(line.tax_charges)}
@@ -287,11 +287,11 @@ export default function CreateQuotePage() {
         <Card>
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.htSubtotal.toFixed(2)} TND</span></div>
+            <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.subtotal_excl_tax.toFixed(2)} TND</span></div>
             {Object.entries(totals.chargesByKey).map(([key, amount]) => (
               <div key={key} className="flex justify-between"><span>{key}:</span><span>{amount.toFixed(2)} TND</span></div>
             ))}
-            <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.ttc.toFixed(2)} TND</span></div>
+            <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.total_incl_tax.toFixed(2)} TND</span></div>
           </CardContent>
         </Card>
 

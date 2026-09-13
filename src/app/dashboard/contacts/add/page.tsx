@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createContact } from "@/lib/supabase/contacts"
 import { useContactsStore } from "@/contexts/contacts-store"
+import { usePMESelection } from "@/contexts/pme-context"
 import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +14,8 @@ import { PartyTypeField } from "@/components/party-type-field"
 
 export default function AddContactPage() {
   const router = useRouter()
-  const { addContact, contacts } = useContactsStore()
+  const { addContact, contacts, organizations } = useContactsStore()
+  const { selectedOrgId } = usePMESelection()
   const logAction = useActionLog("contacts")
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -40,11 +42,19 @@ export default function AddContactPage() {
       alert("Party type is required")
       return
     }
+    const tenantId = selectedOrgId !== "all"
+      ? organizations.find((o) => o.id === selectedOrgId)?.tenant_id
+      : organizations[0]?.tenant_id
+    if (!tenantId) {
+      alert("No organization available to attach this contact to")
+      return
+    }
+
     setLoading(true)
     try {
       const created = await createContact({
         party_type: form.party_type,
-        is_internal_org: false,
+        tenant_id: tenantId,
         internal_organization_id: null,
         company_name: form.company_name,
         mf: form.mf || null,

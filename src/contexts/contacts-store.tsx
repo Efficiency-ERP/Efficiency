@@ -1,13 +1,12 @@
 "use client"
 
 import React, { createContext, useContext, useMemo, useState, useEffect } from "react"
-import type { Contact, Organization, Invoice } from "@/types/database"
+import type { Contact, Organization } from "@/types/database"
 import { getContacts, getOrganizations } from "@/lib/supabase/contacts"
 
 interface ContactsStore {
   contacts: Contact[]
   organizations: Organization[]
-  invoices: Invoice[]
   loading: boolean
   error: string | null
   addContact: (c: Contact) => void
@@ -21,7 +20,6 @@ const ContactsContext = createContext<ContactsStore | undefined>(undefined)
 export function ContactsProvider({ children }: { children: React.ReactNode }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [invoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,7 +45,6 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
   const store = useMemo<ContactsStore>(() => ({
     contacts,
     organizations,
-    invoices,
     loading,
     error,
     addContact: (c: Contact) => setContacts((prev) => [c, ...prev]),
@@ -56,7 +53,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     archiveContact: (id: string) =>
       setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, archived: true } : c))),
     addOrganization: (o: Organization) => setOrganizations((prev) => [o, ...prev]),
-  }), [contacts, organizations, invoices, loading, error])
+  }), [contacts, organizations, loading, error])
 
   return <ContactsContext.Provider value={store}>{children}</ContactsContext.Provider>
 }
