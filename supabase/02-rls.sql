@@ -409,7 +409,10 @@ create policy "Users can view logs"
   to authenticated
   using (organization_id is null or organization_id in (select public.user_organization_ids()));
 
+-- INSERT is scoped the same as SELECT — a caller can only stamp a log row
+-- with their own organization_id (or null for global actions), never
+-- forge one under another tenant's org.
 create policy "Users can create logs"
   on logs for insert
   to authenticated
-  with check (true);
+  with check (organization_id is null or organization_id in (select public.user_organization_ids()));
