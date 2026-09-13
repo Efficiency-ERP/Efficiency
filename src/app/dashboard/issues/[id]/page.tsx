@@ -53,7 +53,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           <h1 className="text-2xl font-bold">{issue.number}</h1>
           <p className="text-muted-foreground">{issue.date}</p>
         </div>
-        <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push(`/documents/issue/${issue.id}`)}>
+            Print / PDF
+          </Button>
+          <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        </div>
       </div>
 
       <Card>

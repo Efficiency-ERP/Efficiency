@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getDelivery, getDeliveryLines } from "@/lib/supabase/invoices"
+import { isSelfIssued } from "@/lib/documents/print-config"
 import { castJson } from "@/lib/utils"
 import type { Delivery, DeliveryLine, DocumentAttributes } from "@/types/database"
 
@@ -54,7 +55,14 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-bold">{delivery.number}</h1>
           <p className="text-muted-foreground">{delivery.date}</p>
         </div>
-        <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        <div className="flex gap-2">
+          {isSelfIssued("delivery", delivery) && (
+            <Button variant="outline" onClick={() => router.push(`/documents/delivery/${delivery.id}`)}>
+              Print / PDF
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        </div>
       </div>
 
       <Card>

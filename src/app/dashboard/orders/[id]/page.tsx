@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getOrder, getOrderLines, getInvoiceBySourceOrder } from "@/lib/supabase/invoices"
+import { isSelfIssued } from "@/lib/documents/print-config"
 import { DocumentAttachments } from "@/components/document-attachments"
 import type { Invoice, Order, OrderLine } from "@/types/database"
 
@@ -57,6 +58,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-muted-foreground">{order.date}</p>
         </div>
         <div className="flex gap-2">
+          {isSelfIssued("order", order) && (
+            <Button variant="outline" onClick={() => router.push(`/documents/order/${order.id}`)}>
+              Print / PDF
+            </Button>
+          )}
           {!linkedInvoice && (
             <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceOrderId=${order.id}`)}>
               Confirm Invoice

@@ -11,6 +11,7 @@ import { formatTND, castJson, paymentMethodLabel } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { DocumentAttachments } from "@/components/document-attachments"
 import { getInvoice, getInvoiceLines, getConsignments, getCorrectionsForInvoice } from "@/lib/supabase/invoices"
+import { isSelfIssued } from "@/lib/documents/print-config"
 import type { Invoice, InvoiceLine, ConsignmentLine, InvoiceTotals, TaxCharge, DocumentAttributes } from "@/types/database"
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -83,7 +84,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button variant="outline" onClick={() => window.print()}>Download PDF</Button>
+          {isSelfIssued("invoice", invoice) && (
+            <Button variant="outline" onClick={() => router.push(`/documents/invoice/${invoice.id}`)}>
+              Print / PDF
+            </Button>
+          )}
         </div>
       </div>
 

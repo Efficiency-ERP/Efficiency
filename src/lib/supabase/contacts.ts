@@ -69,6 +69,18 @@ export async function archiveContact(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function getOrganization(id: string): Promise<Organization | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function getOrganizations(): Promise<Organization[]> {
   const supabase = createClient()
   const { data, error } = await supabase

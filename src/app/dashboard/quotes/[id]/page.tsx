@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { getQuote, getQuoteLines, getInvoiceBySourceQuote, getDeliveriesBySourceQuote } from "@/lib/supabase/invoices"
+import { isSelfIssued } from "@/lib/documents/print-config"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
 import type { Invoice, Quote, QuoteLine, Delivery, InvoiceTotals, TaxCharge } from "@/types/database"
 
@@ -63,6 +64,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-muted-foreground">{quote.date}</p>
         </div>
         <div className="flex gap-2">
+          {isSelfIssued("quote", quote) && (
+            <Button variant="outline" onClick={() => router.push(`/documents/quote/${quote.id}`)}>
+              Print / PDF
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => router.push(`/dashboard/deliveries/create?sourceQuoteId=${quote.id}`)}>
             Create Delivery
           </Button>
