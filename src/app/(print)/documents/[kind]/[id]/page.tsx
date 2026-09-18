@@ -1,8 +1,8 @@
 "use client"
 
 import { use, useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
-import { DocumentSheet } from "@/components/print/document-sheet"
 import {
   buildDocumentViewModel,
   lineConsignmentViews,
@@ -31,6 +31,13 @@ import {
 } from "@/lib/supabase/invoices"
 import { getContact, getOrganization } from "@/lib/supabase/contacts"
 import type { ConsignmentLine } from "@/types/database"
+
+// @react-pdf/renderer builds the PDF in the browser, so it must never be
+// pulled into the server bundle.
+const PdfPreview = dynamic(() => import("@/components/print/pdf-preview").then((m) => m.PdfPreview), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center text-sm text-neutral-500">Chargement du document…</div>,
+})
 
 interface LoadedSource {
   source: DocumentSource
@@ -178,21 +185,5 @@ export default function DocumentPrintPage({
 
   const detailRoute = `${PRINT_KIND_CONFIG[state.vm.kind].listRoute}/${id}`
 
-  return (
-    <>
-      <div className="no-print mx-auto mb-4 flex w-[210mm] items-center justify-between">
-        <Link href={detailRoute} className="text-sm underline hover:no-underline">
-          ← Retour au document
-        </Link>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-        >
-          Imprimer / Enregistrer en PDF
-        </button>
-      </div>
-      <DocumentSheet vm={state.vm} />
-    </>
-  )
+  return <PdfPreview vm={state.vm} backHref={detailRoute} />
 }
