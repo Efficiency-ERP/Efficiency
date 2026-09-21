@@ -29,7 +29,7 @@ import {
   getQuote,
   getQuoteLines,
 } from "@/lib/supabase/invoices"
-import { getContact, getOrganization } from "@/lib/supabase/contacts"
+import { getContact, getOrganization, getOrganizationLogoDataUrl } from "@/lib/supabase/contacts"
 import type { ConsignmentLine } from "@/types/database"
 
 // @react-pdf/renderer builds the PDF in the browser, so it must never be
@@ -134,7 +134,9 @@ export default function DocumentPrintPage({
           getContact(doc.counterparty_id),
         ])
 
-        const base = buildDocumentViewModel(source, { issuer, counterparty }, consignments)
+        const issuerLogo = issuer?.logo_path ? await getOrganizationLogoDataUrl(issuer.logo_path) : null
+
+        const base = buildDocumentViewModel(source, { issuer, counterparty, issuerLogo }, consignments)
 
         // Quotes hold consignment estimates on their own lines rather than in
         // the posted consignment_lines ledger an invoice has.

@@ -16,9 +16,16 @@ export default function PMEPage() {
       </div>
       <div className="grid gap-4">
         {organizations.map((org) => (
-          <div key={org.id} className="border rounded-lg p-4">
-            <div className="font-semibold">{org.name}</div>
-            <div className="text-sm text-muted-foreground">ID: {org.id}</div>
+          <div key={org.id} className="border rounded-lg p-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="font-semibold">{org.name}</div>
+              <div className="text-sm text-muted-foreground">
+                {org.mf ? `MF: ${org.mf}` : "MF non renseigné"}
+              </div>
+            </div>
+            <Button variant="outline" onClick={() => router.push(`/dashboard/pme/${org.id}/edit`)}>
+              Edit
+            </Button>
           </div>
         ))}
       </div>

@@ -57,6 +57,8 @@ export interface Database {
           address: Json
           contact: Json
           conditions_de_vente: string | null
+          logo_path: string | null
+          bank_details: Json | null
           created_at: string
         }
         Insert: {
@@ -68,6 +70,8 @@ export interface Database {
           address?: Json
           contact?: Json
           conditions_de_vente?: string | null
+          logo_path?: string | null
+          bank_details?: Json | null
           created_at?: string
         }
         Update: {
@@ -79,6 +83,8 @@ export interface Database {
           address?: Json
           contact?: Json
           conditions_de_vente?: string | null
+          logo_path?: string | null
+          bank_details?: Json | null
         }
       }
       contacts: {
@@ -534,6 +540,15 @@ export interface Address {
 export interface ContactInfo {
   phone: string | null
   fax: string | null
+}
+
+// Shown on invoices so a customer paying by virement has the account to
+// pay into. All optional — an org that doesn't take transfers leaves it empty.
+export interface BankDetails {
+  bank_name?: string | null
+  rib?: string | null
+  iban?: string | null
+  swift?: string | null
 }
 
 export interface Stock {

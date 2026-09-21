@@ -38,6 +38,9 @@ create table if not exists tenants (
   created_at timestamptz default now()
 );
 
+-- logo_path points into the private organization-logos bucket; bank_details
+-- holds {bank_name, rib, iban, swift} for the virement block on invoices.
+-- Both are nullable: an org without them simply prints without that block.
 create table if not exists organizations (
   id uuid primary key default uuid_generate_v4(),
   tenant_id uuid not null references tenants(id),
@@ -47,6 +50,8 @@ create table if not exists organizations (
   address jsonb default '{"line1": "", "city": "", "zipCode": "", "country": "Tunisie"}'::jsonb,
   contact jsonb default '{"phone": "", "fax": null}'::jsonb,
   conditions_de_vente text,
+  logo_path text,
+  bank_details jsonb,
   created_at timestamptz default now()
 );
 

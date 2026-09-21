@@ -1,5 +1,6 @@
 import { castJson } from "@/lib/utils"
 import type {
+  BankDetails,
   ConsignmentLine,
   Contact,
   Document,
@@ -32,6 +33,8 @@ export interface PartyView {
   phone: string | null
   fax: string | null
   salesTerms: string | null
+  /** Only ever populated for the issuing organization. */
+  bankDetails: BankDetails | null
 }
 
 export interface LineView {
@@ -77,6 +80,8 @@ export interface DocumentSheetViewModel {
   status: string | null
   issuer: PartyView | null
   counterparty: PartyView | null
+  /** Issuer logo as a data URI — resolved by the caller, null when absent. */
+  issuerLogo: string | null
   lines: LineView[]
   /** Null for kinds that carry no monetary totals (goods issues). */
   totals: TotalsView | null
@@ -118,6 +123,7 @@ function organizationParty(org: Organization | null): PartyView | null {
     phone: details.phone || null,
     fax: details.fax || null,
     salesTerms: org.conditions_de_vente,
+    bankDetails: castJson<BankDetails | null>(org.bank_details) || null,
   }
 }
 
@@ -136,6 +142,7 @@ function contactParty(contact: Contact | null): PartyView | null {
     phone: details.phone || null,
     fax: details.fax || null,
     salesTerms: contact.conditions_de_vente,
+    bankDetails: null,
   }
 }
 
@@ -218,11 +225,12 @@ function consignmentViews(consignments: ConsignmentLine[]): ConsignmentView[] {
 
 export function buildDocumentViewModel(
   source: DocumentSource,
-  parties: { issuer: Organization | null; counterparty: Contact | null },
+  parties: { issuer: Organization | null; counterparty: Contact | null; issuerLogo?: string | null },
   consignments: ConsignmentLine[] = []
 ): DocumentSheetViewModel {
   const issuer = organizationParty(parties.issuer)
   const counterparty = contactParty(parties.counterparty)
+  const issuerLogo = parties.issuerLogo || null
 
   if (source.kind === "issue") {
     const { document, lines } = source
@@ -235,6 +243,7 @@ export function buildDocumentViewModel(
       status: document.status,
       issuer,
       counterparty,
+      issuerLogo,
       lines: lines.map(issueLineView),
       totals: null,
       consignments: [],
@@ -257,6 +266,7 @@ export function buildDocumentViewModel(
     status: document.status,
     issuer,
     counterparty,
+    issuerLogo,
     lines: lines.map(documentLineView),
     totals: totalsView(castJson<InvoiceTotals>(document.totals) || {}),
     consignments: consignmentViews(consignments),

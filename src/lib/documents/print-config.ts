@@ -23,6 +23,8 @@ export interface PrintKindConfig {
   showAmountInWords: boolean
   showConsignments: boolean
   showDeliveryDetails: boolean
+  /** The RIB block a customer needs to pay by virement. */
+  showBankDetails: boolean
   /** Reserved footer area — becomes the TTN reference / QR block once El Fatoora lands. */
   showSignatureBlock: boolean
 }
@@ -40,6 +42,7 @@ export const PRINT_KIND_CONFIG: Record<PrintableKind, PrintKindConfig> = {
     showAmountInWords: true,
     showConsignments: true,
     showDeliveryDetails: false,
+    showBankDetails: true,
     showSignatureBlock: true,
   },
   quote: {
@@ -54,6 +57,7 @@ export const PRINT_KIND_CONFIG: Record<PrintableKind, PrintKindConfig> = {
     showAmountInWords: false,
     showConsignments: true,
     showDeliveryDetails: false,
+    showBankDetails: false,
     showSignatureBlock: false,
   },
   delivery: {
@@ -69,6 +73,7 @@ export const PRINT_KIND_CONFIG: Record<PrintableKind, PrintKindConfig> = {
     showAmountInWords: false,
     showConsignments: false,
     showDeliveryDetails: true,
+    showBankDetails: false,
     showSignatureBlock: false,
   },
   order: {
@@ -83,6 +88,7 @@ export const PRINT_KIND_CONFIG: Record<PrintableKind, PrintKindConfig> = {
     showAmountInWords: false,
     showConsignments: false,
     showDeliveryDetails: false,
+    showBankDetails: false,
     showSignatureBlock: false,
   },
   issue: {
@@ -98,6 +104,7 @@ export const PRINT_KIND_CONFIG: Record<PrintableKind, PrintKindConfig> = {
     showAmountInWords: false,
     showConsignments: false,
     showDeliveryDetails: false,
+    showBankDetails: false,
     showSignatureBlock: false,
   },
 }

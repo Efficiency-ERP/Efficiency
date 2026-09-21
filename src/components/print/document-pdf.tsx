@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
 import { formatTND, paymentMethodLabel } from "@/lib/utils"
 import { amountInWordsTND } from "@/lib/documents/amount-in-words"
 import { PRINT_KIND_CONFIG, documentTitle } from "@/lib/documents/print-config"
@@ -35,6 +35,9 @@ const styles = StyleSheet.create({
     borderBottomColor: "#1f2937",
     paddingBottom: 8,
   },
+  issuerBlock: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  // Bounded so a tall or wide logo can't push the letterhead out of shape.
+  logo: { width: mm(30), height: mm(15), objectFit: "contain" },
   issuerName: { fontSize: 13, fontFamily: "Helvetica-Bold" },
   issuerMeta: { fontSize: 7.5, color: "#4b5563", marginTop: 3, lineHeight: 1.4 },
   titleBlock: { alignItems: "flex-end" },
@@ -246,12 +249,20 @@ export function DocumentPdf({ vm }: { vm: DocumentSheetViewModel }) {
   const config = PRINT_KIND_CONFIG[vm.kind]
   const title = documentTitle(vm.kind, vm.subtype)
   const salesTerms = vm.issuer?.salesTerms || vm.counterparty?.salesTerms
+  const bank = vm.issuer?.bankDetails
+  const bankLine = bank
+    ? [bank.bank_name, bank.rib ? `RIB ${bank.rib}` : null, bank.iban ? `IBAN ${bank.iban}` : null, bank.swift]
+        .filter(Boolean)
+        .join(" · ")
+    : ""
 
   return (
     <Document title={`${title} ${vm.number}`} author={vm.issuer?.name || "Efficiency"}>
       <Page size="A4" style={styles.page}>
         <View style={styles.header} fixed>
-          <View>
+          <View style={styles.issuerBlock}>
+            {vm.issuerLogo ? <Image style={styles.logo} src={vm.issuerLogo} /> : null}
+            <View>
             <Text style={styles.issuerName}>{vm.issuer?.name || "—"}</Text>
             <View style={styles.issuerMeta}>
               {vm.issuer?.addressLine1 ? <Text>{vm.issuer.addressLine1}</Text> : null}
@@ -268,6 +279,7 @@ export function DocumentPdf({ vm }: { vm: DocumentSheetViewModel }) {
                     .join(" · ")}
                 </Text>
               ) : null}
+            </View>
             </View>
           </View>
           <View style={styles.titleBlock}>
@@ -363,6 +375,7 @@ export function DocumentPdf({ vm }: { vm: DocumentSheetViewModel }) {
         <View style={styles.footer} wrap={false}>
           {config.showPaymentMethod ? <Text>Mode de paiement : {paymentMethodLabel(vm.paymentMethod)}</Text> : null}
           {salesTerms ? <Text>Conditions : {salesTerms}</Text> : null}
+          {config.showBankDetails && bankLine ? <Text>Coordonnées bancaires : {bankLine}</Text> : null}
           {config.showSignatureBlock ? (
             <View style={styles.signatures}>
               {/* Reserved for the TTN reference / QR code once El Fatoora lands. */}
