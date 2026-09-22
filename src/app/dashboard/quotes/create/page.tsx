@@ -2,10 +2,10 @@
 
 import { useState, Fragment } from "react"
 import { useRouter } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createQuote, getNextDocumentNumber, computeInvoiceTotals, consignmentsForLine, coveredQuantity } from "@/lib/supabase/invoices"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
@@ -14,17 +14,17 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 import { castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
 import type { Json, TaxCharge } from "@/types/database"
 
 export default function CreateQuotePage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
-  const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("quotes")
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
@@ -90,9 +90,9 @@ export default function CreateQuotePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!organizationId) { alert("Select a PME"); return }
-    if (!counterpartyId) { alert("Select a counterparty"); return }
-    if (lines.length === 0) { alert("Add at least one line"); return }
+    if (!organizationId) { alert("Sélectionner une organisation"); return }
+    if (!counterpartyId) { alert("Sélectionner un tiers"); return }
+    if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
 
     setLoading(true)
     try {
@@ -123,30 +123,30 @@ export default function CreateQuotePage() {
       router.push(`/dashboard/quotes/${quote.id}`)
     } catch (err) {
       console.error(err)
-      alert("Failed to create quote")
+      alert("Échec de la création du devis")
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredContacts = sortMyPmeFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyPme)
-  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
+  const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
   const totals = computeInvoiceTotals(lines)
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Create Quote (Devis)</h1>
+      <h1 className="text-2xl font-bold">Créer un devis</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Header</CardTitle></CardHeader>
+          <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>PME *</Label>
+                <Label>Organisation *</Label>
                 <Select value={organizationId} onValueChange={setOrganizationId}>
-                  <SelectTrigger><SelectValue placeholder="Select PME" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner une organisation" /></SelectTrigger>
                   <SelectContent>
                     {organizations.map((o) => (
                       <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
@@ -155,14 +155,14 @@ export default function CreateQuotePage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label>Counterparty *</Label>
+                <Label>Tiers *</Label>
                 <Select value={counterpartyId} onValueChange={setCounterpartyId}>
-                  <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner un contact" /></SelectTrigger>
                   <SelectContent>
                     {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                      <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
+                        {isContactMyOrganization(c) && <OrganizationBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -170,7 +170,7 @@ export default function CreateQuotePage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>Number</Label><Input value="Auto-generated on save" readOnly /></div>
+              <div className="grid gap-2"><Label>Numéro</Label><Input value="Auto-generated on save" readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             </div>
           </CardContent>
@@ -178,33 +178,33 @@ export default function CreateQuotePage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Lines</CardTitle>
+            <CardTitle>Lignes</CardTitle>
             <div className="flex gap-2">
               <Select onValueChange={addFromArticle}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Ajouter depuis un article" /></SelectTrigger>
                 <SelectContent>
                   {sortedArticles.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                    <SelectItem key={a.id} value={a.id} className={organizationItemClassName(isArticleMyOrganization(a))}>
                       {a.code} — {a.designation}
-                      {isArticleMyPme(a) && <PmeBadge />}
+                      {isArticleMyOrganization(a) && <OrganizationBadge />}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="button" variant="outline" onClick={addFreeformLine}>Freeform line</Button>
+              <Button type="button" variant="outline" onClick={addFreeformLine}>Ligne libre</Button>
             </div>
           </CardHeader>
           <CardContent>
             {lines.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No lines added yet</div>
+              <div className="text-center py-8 text-muted-foreground">Aucune ligne ajoutée</div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-2">Code</th>
-                    <th className="text-left p-2">Designation</th>
-                    <th className="text-right p-2">Qty</th>
-                    <th className="text-left p-2">Unit</th>
+                    <th className="text-left p-2">Désignation</th>
+                    <th className="text-right p-2">Qté</th>
+                    <th className="text-left p-2">Unité</th>
                     <th className="text-right p-2">PUHT</th>
                     <th className="text-left p-2">Taxes</th>
                     <th></th>
@@ -225,7 +225,7 @@ export default function CreateQuotePage() {
                           </Button>
                         </td>
                         <td className="p-1 whitespace-nowrap">
-                          <Button type="button" variant="ghost" size="sm" onClick={() => addConsignmentLine(i)} title="Add a packaging deposit for this line">+ Deposit</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addConsignmentLine(i)} title="Ajouter une consigne d'emballage pour cette ligne">+ Consigne</Button>
                           <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button>
                         </td>
                       </tr>
@@ -247,8 +247,8 @@ export default function CreateQuotePage() {
         {lines.some((l) => l.consignments.length > 0) && (
           <Card>
             <CardHeader>
-              <CardTitle>Consignments</CardTitle>
-              <CardDescription>An estimate for the customer — the actual deposit is charged on the invoice, not stored on this quote.</CardDescription>
+              <CardTitle>Consignations</CardTitle>
+              <CardDescription>Une estimation pour le client — la consigne réelle est facturée sur la facture, elle n&apos;est pas enregistrée sur ce devis.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {lines.map((line, i) => {
@@ -262,7 +262,7 @@ export default function CreateQuotePage() {
                     )}
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th><th></th></tr>
+                        <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Taille du contenant</th><th className="text-right p-2">Contenants</th><th className="text-right p-2">Consigne/unité</th><th className="text-right p-2">Total</th><th></th></tr>
                       </thead>
                       <tbody>
                         {line.consignments.map((c, j) => (
@@ -285,24 +285,24 @@ export default function CreateQuotePage() {
         )}
 
         <Card>
-          <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Totaux</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.subtotal_excl_tax.toFixed(2)} TND</span></div>
+            <div className="flex justify-between"><span>Total HT :</span><span>{totals.subtotal_excl_tax.toFixed(2)} TND</span></div>
             {Object.entries(totals.chargesByKey).map(([key, amount]) => (
-              <div key={key} className="flex justify-between"><span>{key}:</span><span>{amount.toFixed(2)} TND</span></div>
+              <div key={key} className="flex justify-between"><span>{key} :</span><span>{amount.toFixed(2)} TND</span></div>
             ))}
-            <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.total_incl_tax.toFixed(2)} TND</span></div>
+            <div className="flex justify-between font-bold border-t pt-2"><span>TTC :</span><span>{totals.total_incl_tax.toFixed(2)} TND</span></div>
           </CardContent>
         </Card>
 
         <div className="grid gap-2">
           <Label>Notes</Label>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes..." />
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (facultatif)..." />
         </div>
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Quote"}</Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer le devis"}</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button>
         </div>
       </form>
     </div>

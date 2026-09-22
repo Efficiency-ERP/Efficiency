@@ -4,7 +4,7 @@ import * as React from "react"
 import { ChevronsUpDown, Plus, Building2, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useContactsStore } from "@/contexts/contacts-store"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 
 import {
   DropdownMenu,
@@ -22,30 +22,30 @@ import {
 } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/use-sidebar"
 
-type PMEItem = {
+type OrganizationItem = {
   id: string
   name: string
   icon: React.ElementType
-  type: "pme" | "view"
+  type: "organization" | "view"
 }
 
 export function TeamSwitcher() {
   const { isMobile } = useSidebar()
   const { organizations } = useContactsStore()
-  const { selectedOrgId, setSelectedOrgId } = usePMESelection()
+  const { selectedOrgId, setSelectedOrgId } = useOrganizationSelection()
   const router = useRouter()
 
-  const handleAddPME = () => {
-    router.push("/dashboard/pme/add")
+  const handleAddOrganization = () => {
+    router.push("/dashboard/organizations/add")
   }
 
-  const items: PMEItem[] = React.useMemo(() => {
-    const base: PMEItem[] = [{ id: "all", name: "All PMEs", icon: Eye, type: "view" }]
-    const orgs = organizations.map((o) => ({ id: o.id, name: o.name, icon: Building2, type: "pme" as const }))
+  const items: OrganizationItem[] = React.useMemo(() => {
+    const base: OrganizationItem[] = [{ id: "all", name: "Toutes les organisations", icon: Eye, type: "view" }]
+    const orgs = organizations.map((o) => ({ id: o.id, name: o.name, icon: Building2, type: "organization" as const }))
     return [...base, ...orgs]
   }, [organizations])
 
-  const activePME = React.useMemo(() => {
+  const activeOrganization = React.useMemo(() => {
     if (selectedOrgId === "all") return items[0]
     const found = items.find((i) => i.id === selectedOrgId)
     return found ?? items[0]
@@ -61,11 +61,11 @@ export function TeamSwitcher() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <activePME.icon className="size-4" />
+                <activeOrganization.icon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{activePME.name}</span>
-                <span className="truncate text-xs">{activePME.type === "view" ? "Overview" : "PME Unit"}</span>
+                <span className="truncate font-medium">{activeOrganization.name}</span>
+                <span className="truncate text-xs">{activeOrganization.type === "view" ? "Vue d'ensemble" : "Organisation"}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
@@ -77,27 +77,27 @@ export function TeamSwitcher() {
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-muted-foreground text-xs">
-              PME Selector
+              Sélecteur d'organisation
             </DropdownMenuLabel>
-            {items.map((pme, index) => (
+            {items.map((organization, index) => (
               <DropdownMenuItem
-                key={pme.id}
-                onClick={() => setSelectedOrgId(pme.id)}
+                key={organization.id}
+                onClick={() => setSelectedOrgId(organization.id)}
                 className="gap-2 p-2"
               >
                 <div className="flex size-6 items-center justify-center rounded-md border">
-                  <pme.icon className="size-3.5 shrink-0" />
+                  <organization.icon className="size-3.5 shrink-0" />
                 </div>
-                {pme.name}
+                {organization.name}
                 <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2" onClick={handleAddPME}>
+            <DropdownMenuItem className="gap-2 p-2" onClick={handleAddOrganization}>
               <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                 <Plus className="size-4" />
               </div>
-              <div className="text-muted-foreground font-medium">Add PME</div>
+              <div className="text-muted-foreground font-medium">Ajouter une organisation</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

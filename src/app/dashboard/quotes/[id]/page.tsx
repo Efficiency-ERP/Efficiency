@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { formatTND, castJson } from "@/lib/utils"
 import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { getQuote, getQuoteLines, getInvoiceBySourceQuote, getDeliveriesBySourceQuote } from "@/lib/supabase/invoices"
+import { isSelfIssued } from "@/lib/documents/print-config"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
 import type { Invoice, Quote, QuoteLine, Delivery, InvoiceTotals, TaxCharge } from "@/types/database"
 
@@ -44,12 +45,12 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
   const counterparty = quote ? contacts.find((c) => c.id === quote.counterparty_id) : null
 
-  if (loading) return <div className="text-muted-foreground">Loading...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement...</div>
 
   if (!quote) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
-      <h2 className="text-xl font-bold">Quote not found</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/quotes")}>Back to quotes</Button>
+      <h2 className="text-xl font-bold">Devis introuvable</h2>
+      <Button variant="outline" onClick={() => router.push("/dashboard/quotes")}>Retour aux devis</Button>
     </div>
   )
 
@@ -63,6 +64,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-muted-foreground">{quote.date}</p>
         </div>
         <div className="flex gap-2">
+          {isSelfIssued("quote", quote) && (
+            <Button variant="outline" onClick={() => router.push(`/documents/quote/${quote.id}`)}>
+              Print / PDF
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => router.push(`/dashboard/deliveries/create?sourceQuoteId=${quote.id}`)}>
             Create Delivery
           </Button>
@@ -71,18 +77,18 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
               Validate → Create Invoice
             </Button>
           )}
-          <Button variant="outline" onClick={() => router.back()}>Back</Button>
+          <Button variant="outline" onClick={() => router.back()}>Retour</Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Header</CardTitle></CardHeader>
+        <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
-          <div><span className="text-muted-foreground">Status:</span> <Badge>{quote.status}</Badge></div>
+          <div><span className="text-muted-foreground">Tiers :</span> {counterparty?.company_name || "N/A"}</div>
+          <div><span className="text-muted-foreground">Statut :</span> <Badge>{quote.status}</Badge></div>
           {linkedInvoice && (
             <div>
-              <span className="text-muted-foreground">Invoice:</span>{" "}
+              <span className="text-muted-foreground">Facture :</span>{" "}
               <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${linkedInvoice.id}`)}>
                 View invoice
               </button>
@@ -92,11 +98,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Lines</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Lignes</CardTitle></CardHeader>
         <CardContent>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Designation</th><th className="text-right p-2">Qty</th><th className="text-left p-2">Unit</th><th className="text-right p-2">PUHT</th><th className="text-left p-2">Taxes</th></tr>
+              <tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Désignation</th><th className="text-right p-2">Qté</th><th className="text-left p-2">Unité</th><th className="text-right p-2">PUHT</th><th className="text-left p-2">Taxes</th></tr>
             </thead>
             <tbody>
               {lines.map((line) => (
@@ -115,19 +121,19 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Totaux</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between"><span>HT Subtotal:</span><span>{formatTND(totals.subtotal_excl_tax || 0)}</span></div>
+          <div className="flex justify-between"><span>Total HT :</span><span>{formatTND(totals.subtotal_excl_tax || 0)}</span></div>
           {Object.entries(totals.chargesByKey || {}).map(([key, amount]) => (
-            <div key={key} className="flex justify-between"><span>{key}:</span><span>{formatTND(amount)}</span></div>
+            <div key={key} className="flex justify-between"><span>{key} :</span><span>{formatTND(amount)}</span></div>
           ))}
-          <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{formatTND(totals.total_incl_tax || 0)}</span></div>
+          <div className="flex justify-between font-bold border-t pt-2"><span>TTC :</span><span>{formatTND(totals.total_incl_tax || 0)}</span></div>
         </CardContent>
       </Card>
 
       {lines.some((l) => castJson<ConsignmentCharge[]>(l.consignments).length > 0) && (
         <Card>
-          <CardHeader><CardTitle>Consignments (estimate)</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Consignations (estimation)</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {lines.map((line) => {
               const consignments = castJson<ConsignmentCharge[]>(line.consignments)
@@ -137,7 +143,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="text-sm font-medium">{line.designation}</div>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th></tr>
+                      <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Taille du contenant</th><th className="text-right p-2">Contenants</th><th className="text-right p-2">Consigne/unité</th><th className="text-right p-2">Total</th></tr>
                     </thead>
                     <tbody>
                       {consignments.map((c, i) => (
@@ -160,11 +166,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
       {deliveries.length > 0 && (
         <Card>
-          <CardHeader><CardTitle>Deliveries</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Bons de livraison</CardTitle></CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b"><th className="text-left p-2">Number</th><th className="text-left p-2">Date</th></tr>
+                <tr className="border-b"><th className="text-left p-2">Numéro</th><th className="text-left p-2">Date</th></tr>
               </thead>
               <tbody>
                 {deliveries.map((d) => (

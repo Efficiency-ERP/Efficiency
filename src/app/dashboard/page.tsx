@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { formatTND, castJson, withTimeout } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import SalesBarChart from "@/components/SalesBarChart"
@@ -28,7 +28,7 @@ function getRangeStartDate(range: Range): Date {
 export default function DashboardHome() {
   const router = useRouter()
   const { articles } = useArticlesStore()
-  const { selectedOrgId, selectedOrgName } = usePMESelection()
+  const { selectedOrgId, selectedOrgName } = useOrganizationSelection()
   const [range, setRange] = useState<Range>("30")
 
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([])
@@ -152,7 +152,7 @@ export default function DashboardHome() {
     [articles]
   )
 
-  if (loading) return <div className="text-muted-foreground">Loading dashboard...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement du tableau de bord...</div>
 
   return (
     <div className="space-y-6">
@@ -161,7 +161,7 @@ export default function DashboardHome() {
           Mode: {isTenant ? "Tenant (all orgs)" : `Organization — ${selectedOrgName ?? selectedOrgId}`}
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-sm">Range</span>
+          <span className="text-sm">Période</span>
           <div className="flex gap-1">
             {(["7", "30", "90", "ytd"] as Range[]).map((r) => (
               <Button
@@ -180,7 +180,7 @@ export default function DashboardHome() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="shadow-none border border-border/40 md:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Revenue MTD</CardTitle>
+            <CardTitle className="text-sm">CA du mois</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatTND(revenueMTD)}</div>
@@ -188,7 +188,7 @@ export default function DashboardHome() {
         </Card>
         <Card className="shadow-none border border-border/40 md:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Money Out (MTD)</CardTitle>
+            <CardTitle className="text-sm">Décaissements (mois en cours)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold text-red-600">{formatTND(moneyOutMTD)}</div>
@@ -196,8 +196,8 @@ export default function DashboardHome() {
         </Card>
         <Card className="shadow-none border border-border/40 md:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Sales Trend</CardTitle>
-            <CardDescription>Last 6 months TTC</CardDescription>
+            <CardTitle className="text-sm">Évolution des ventes</CardTitle>
+            <CardDescription>6 derniers mois TTC</CardDescription>
           </CardHeader>
           <CardContent>
             <SalesBarChart
@@ -215,7 +215,7 @@ export default function DashboardHome() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="shadow-none border border-border/40 md:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Revenue Today</CardTitle>
+            <CardTitle className="text-sm">CA du jour</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatTND(revenueToday)}</div>
@@ -223,7 +223,7 @@ export default function DashboardHome() {
         </Card>
         <Card className="shadow-none border border-border/40 md:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Revenue YTD</CardTitle>
+            <CardTitle className="text-sm">CA de l&apos;année</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatTND(revenueYTD)}</div>
@@ -234,7 +234,7 @@ export default function DashboardHome() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="shadow-none border border-border/40">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Invoices</CardTitle>
+            <CardTitle className="text-sm">Factures</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm">
@@ -248,7 +248,7 @@ export default function DashboardHome() {
         </Card>
         <Card className="shadow-none border border-border/40">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Taxes Collected (MTD)</CardTitle>
+            <CardTitle className="text-sm">Taxes collectées (mois en cours)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatTND(taxesMTD)}</div>
@@ -256,10 +256,10 @@ export default function DashboardHome() {
         </Card>
         <Card className="shadow-none border border-border/40">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Consignments</CardTitle>
+            <CardTitle className="text-sm">Consignations</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">See invoice details</div>
+            <div className="text-sm text-muted-foreground">Voir le détail de la facture</div>
           </CardContent>
         </Card>
       </div>
@@ -268,19 +268,19 @@ export default function DashboardHome() {
         <Card className="shadow-none border border-border/40">
           <CardHeader>
             <CardTitle>Pipeline ({range === "ytd" ? "YTD" : `${range}d`})</CardTitle>
-            <CardDescription>Order → Issue → Delivery → Invoice</CardDescription>
+            <CardDescription>Commande → Bon de sortie → Livraison → Facture</CardDescription>
           </CardHeader>
           <CardContent className="text-sm grid grid-cols-4 gap-2">
-            <div>Orders<div className="text-xl font-semibold">{pipelineOrders}</div></div>
-            <div>Issues<div className="text-xl font-semibold">{pipelineIssues}</div></div>
-            <div>Deliveries<div className="text-xl font-semibold">{pipelineDeliveries}</div></div>
-            <div>Invoices<div className="text-xl font-semibold">{pipelineInvoices}</div></div>
+            <div>Commandes<div className="text-xl font-semibold">{pipelineOrders}</div></div>
+            <div>Bons de sortie<div className="text-xl font-semibold">{pipelineIssues}</div></div>
+            <div>Bons de livraison<div className="text-xl font-semibold">{pipelineDeliveries}</div></div>
+            <div>Factures<div className="text-xl font-semibold">{pipelineInvoices}</div></div>
           </CardContent>
         </Card>
         <Card className="shadow-none border border-border/40">
           <CardHeader>
-            <CardTitle>Low Stock Alerts</CardTitle>
-            <CardDescription>Below minimum stock</CardDescription>
+            <CardTitle>Alertes de stock bas</CardTitle>
+            <CardDescription>Stock sous le minimum</CardDescription>
           </CardHeader>
           <CardContent>
             {lowStock.length ? (
@@ -309,16 +309,16 @@ export default function DashboardHome() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="shadow-none border border-border/40">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Create documents</CardDescription>
+            <CardTitle>Actions rapides</CardTitle>
+            <CardDescription>Créer des documents</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => router.push("/dashboard/quotes/create")}>Create Quote</Button>
-            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/deliveries/create")}>Create Delivery</Button>
-            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/issues/create")}>Create Issue</Button>
-            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/orders/create?type=supplier")}>Create Supplier Order</Button>
-            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/contacts/add")}>Add Contact</Button>
-            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/articles/add")}>Add Article</Button>
+            <Button size="sm" onClick={() => router.push("/dashboard/quotes/create")}>Créer un devis</Button>
+            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/deliveries/create")}>Créer un bon de livraison</Button>
+            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/issues/create")}>Créer un bon de sortie</Button>
+            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/orders/create?type=supplier")}>Créer une commande fournisseur</Button>
+            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/contacts/add")}>Ajouter un contact</Button>
+            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/articles/add")}>Ajouter un article</Button>
           </CardContent>
         </Card>
       </div>

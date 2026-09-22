@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getOrder, getOrderLines, getInvoiceBySourceOrder } from "@/lib/supabase/invoices"
+import { isSelfIssued } from "@/lib/documents/print-config"
 import { DocumentAttachments } from "@/components/document-attachments"
 import type { Invoice, Order, OrderLine } from "@/types/database"
 
@@ -40,12 +41,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const counterparty = order ? contacts.find((c) => c.id === order.counterparty_id) : null
 
-  if (loading) return <div className="text-muted-foreground">Loading...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement...</div>
 
   if (!order) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
-      <h2 className="text-xl font-bold">Order not found</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/orders")}>Back to orders</Button>
+      <h2 className="text-xl font-bold">Commande introuvable</h2>
+      <Button variant="outline" onClick={() => router.push("/dashboard/orders")}>Retour aux commandes</Button>
     </div>
   )
 
@@ -57,24 +58,29 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-muted-foreground">{order.date}</p>
         </div>
         <div className="flex gap-2">
+          {isSelfIssued("order", order) && (
+            <Button variant="outline" onClick={() => router.push(`/documents/order/${order.id}`)}>
+              Print / PDF
+            </Button>
+          )}
           {!linkedInvoice && (
             <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceOrderId=${order.id}`)}>
               Confirm Invoice
             </Button>
           )}
-          <Button variant="outline" onClick={() => router.back()}>Back</Button>
+          <Button variant="outline" onClick={() => router.back()}>Retour</Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Header</CardTitle></CardHeader>
+        <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Counterparty:</span> {counterparty?.company_name || "N/A"}</div>
-          <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{order.subtype}</Badge></div>
-          <div><span className="text-muted-foreground">Status:</span> <Badge>{order.status}</Badge></div>
+          <div><span className="text-muted-foreground">Tiers :</span> {counterparty?.company_name || "N/A"}</div>
+          <div><span className="text-muted-foreground">Type :</span> <Badge variant="outline">{order.subtype}</Badge></div>
+          <div><span className="text-muted-foreground">Statut :</span> <Badge>{order.status}</Badge></div>
           {linkedInvoice && (
             <div>
-              <span className="text-muted-foreground">Invoice:</span>{" "}
+              <span className="text-muted-foreground">Facture :</span>{" "}
               <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${linkedInvoice.id}`)}>
                 View invoice
               </button>
@@ -84,16 +90,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Lines</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Lignes</CardTitle></CardHeader>
         <CardContent>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
                 <th className="text-left p-2">Code</th>
-                <th className="text-left p-2">Designation</th>
-                <th className="text-right p-2">Qty</th>
-                <th className="text-left p-2">Unit</th>
-                <th className="text-right p-2">Price</th>
+                <th className="text-left p-2">Désignation</th>
+                <th className="text-right p-2">Qté</th>
+                <th className="text-left p-2">Unité</th>
+                <th className="text-right p-2">Prix</th>
               </tr>
             </thead>
             <tbody>
@@ -107,7 +113,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 </tr>
               ))}
               {lines.length === 0 && (
-                <tr><td colSpan={5} className="text-center p-4 text-muted-foreground">No lines</td></tr>
+                <tr><td colSpan={5} className="text-center p-4 text-muted-foreground">Aucune ligne</td></tr>
               )}
             </tbody>
           </table>

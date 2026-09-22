@@ -2,10 +2,10 @@
 
 import { use, useState, useEffect, Fragment } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, coveredQuantity, getConsignments, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
@@ -14,19 +14,20 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
-import type { Json, PaymentMethod, TaxCharge, InvoiceDirection } from "@/types/database"
+import { DocumentChargesEditor, stampCharge } from "@/components/document-charges-editor"
+import type { DocumentCharge, Json, PaymentMethod, TaxCharge, InvoiceDirection } from "@/types/database"
 
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
-  const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("invoices")
 
   const invoiceType = type as "standard" | "credit" | "debit"
@@ -52,6 +53,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [originalInvoiceId, setOriginalInvoiceId] = useState("")
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_excl_tax: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
+  const [documentCharges, setDocumentCharges] = useState<DocumentCharge[]>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [prefilling, setPrefilling] = useState(isInferredFlow)
@@ -64,11 +66,22 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const isMoneyOut = direction === "out"
 
   // Auto-select the issuing organization when there's only one to choose from
-  // (the global PME filter already covers the case where one is pre-selected).
+  // (the global organization filter already covers the case where one is pre-selected).
   useEffect(() => {
     if (isInferredFlow || organizationId) return
     if (organizations.length === 1) setOrganizationId(organizations[0].id)
   }, [organizations, organizationId, isInferredFlow])
+
+  // Seed the issuing org's timbre fiscal. Only on an invoice we issue
+  // ourselves: a supplier's invoice carries their stamp, and an avoir doesn't
+  // re-charge it. Seeding only while the list is still empty is what stops an
+  // organization switch from clobbering charges the user has already edited.
+  useEffect(() => {
+    if (isMoneyOut || invoiceType !== "standard") return
+    const stampDuty = organizations.find((o) => o.id === organizationId)?.stamp_duty
+    if (!stampDuty) return
+    setDocumentCharges((current) => (current.length === 0 ? [stampCharge(stampDuty)] : current))
+  }, [organizationId, organizations, isMoneyOut, invoiceType])
 
   useEffect(() => {
     async function prefillFromOriginalInvoice() {
@@ -103,7 +116,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         setSourceLabel(`invoice ${original.number}`)
       } catch (err) {
         console.error(err)
-        alert("Failed to load original invoice")
+        alert("Échec du chargement de la facture d'origine")
       } finally {
         setPrefilling(false)
       }
@@ -163,7 +176,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         }
       } catch (err) {
         console.error(err)
-        alert("Failed to load source document")
+        alert("Échec du chargement du document source")
       } finally {
         setPrefilling(false)
       }
@@ -229,11 +242,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!organizationId) { alert("Select an issuing organization"); return }
-    if (!counterpartyId) { alert("Select a counterparty"); return }
-    if (lines.length === 0) { alert("Add at least one line"); return }
-    if (isAdjustment && !originalInvoiceId) { alert("Select the original invoice"); return }
-    if (isMoneyOut && !manualNumber.trim()) { alert("Enter the supplier's invoice number"); return }
+    if (!organizationId) { alert("Sélectionner l'organisation émettrice"); return }
+    if (!counterpartyId) { alert("Sélectionner un tiers"); return }
+    if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
+    if (isAdjustment && !originalInvoiceId) { alert("Sélectionner la facture d'origine"); return }
+    if (isMoneyOut && !manualNumber.trim()) { alert("Saisissez le numéro de facture du fournisseur"); return }
 
     setLoading(true)
     try {
@@ -270,6 +283,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           source_delivery_id: null,
           original_invoice_id: isAdjustment ? (originalInvoiceId || null) : null,
           notes: notes || null,
+          charges: documentCharges,
         },
         invoiceLines
       )
@@ -279,28 +293,28 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       router.push(`/dashboard/invoices/${invoice.id}`)
     } catch (err) {
       console.error(err)
-      alert("Failed to create invoice")
+      alert("Échec de la création de la facture")
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredContacts = sortMyPmeFirst(
+  const filteredContacts = sortMyOrganizationsFirst(
     contacts.filter((c) =>
       c.internal_organization_id !== organizationId &&
       (invoiceType === "standard" && !sourceOrderId ? c.party_type !== "supplier" : true)
     ),
-    isContactMyPme
+    isContactMyOrganization
   )
-  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
-  const totals = computeInvoiceTotals(lines)
+  const totals = computeInvoiceTotals(lines, documentCharges)
 
-  if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
+  if (prefilling) return <div className="text-muted-foreground">Chargement du document source...</div>
 
   const pageTitle = sourceLabel
     ? isAdjustment
-      ? `${invoiceType === "credit" ? "Add Credit Note" : "Add Debit Note"} — from ${sourceLabel}`
+      ? `${invoiceType === "credit" ? "Ajouter un avoir" : "Ajouter une facture de débit"} — from ${sourceLabel}`
       : `Confirm Invoice — from ${sourceLabel}`
     : `Create ${type} Invoice`
 
@@ -310,11 +324,11 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Header</CardTitle></CardHeader>
+          <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {isAdjustment && originalInvoiceIdParam && (
               <div className="text-sm">
-                <span className="text-muted-foreground">Correcting invoice:</span>{" "}
+                <span className="text-muted-foreground">Facture corrigée :</span>{" "}
                 <button type="button" className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${originalInvoiceIdParam}`)}>
                   {sourceLabel ? sourceLabel.replace(/^invoice /, "") : "…"}
                 </button>
@@ -326,12 +340,12 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                 original would break the relationship the whole document exists for. */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>Issuing Organization *</Label>
+                <Label>Organisation émettrice *</Label>
                 {isAdjustment ? (
                   <div className="text-sm py-2">{organizations.find((o) => o.id === organizationId)?.name || "—"}</div>
                 ) : (
                   <Select value={organizationId} onValueChange={setOrganizationId}>
-                    <SelectTrigger><SelectValue placeholder="Select issuing organization" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner l'organisation émettrice" /></SelectTrigger>
                     <SelectContent>
                       {organizations.map((o) => (
                         <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
@@ -341,7 +355,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                 )}
               </div>
               <div className="grid gap-2">
-                <Label>Counterparty *</Label>
+                <Label>Tiers *</Label>
                 {isAdjustment ? (
                   <div className="text-sm py-2">{contacts.find((c) => c.id === counterpartyId)?.company_name || "—"}</div>
                 ) : (
@@ -352,14 +366,14 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                       setCounterpartyId(v)
                     }}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner un contact" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__new__">+ New Contact</SelectItem>
+                      <SelectItem value="__new__">+ Nouveau contact</SelectItem>
                       <SelectSeparator />
                       {filteredContacts.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                        <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                           {c.company_name}
-                          {isContactMyPme(c) && <PmeBadge />}
+                          {isContactMyOrganization(c) && <OrganizationBadge />}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -371,19 +385,19 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               <div className="grid gap-2">
                 <Label>Number{isMoneyOut ? " *" : ""}</Label>
                 {isMoneyOut ? (
-                  <Input value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} placeholder="Supplier's invoice number" />
+                  <Input value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} placeholder="Numéro de facture du fournisseur" />
                 ) : (
-                  <div className="text-sm text-muted-foreground py-2">Auto-generated on save</div>
+                  <div className="text-sm text-muted-foreground py-2">Généré automatiquement à l&apos;enregistrement</div>
                 )}
               </div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-              <div className="grid gap-2"><Label>Due Date</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+              <div className="grid gap-2"><Label>Échéance</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label>Mode de paiement</Label>
                 <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-                  <SelectTrigger><SelectValue placeholder="Select mode de paiement" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner le mode de paiement" /></SelectTrigger>
                   <SelectContent>
                     {PAYMENT_METHODS.map((m) => (
                       <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
@@ -393,12 +407,12 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
               </div>
               {!isInferredFlow && (
                 <div className="grid gap-2">
-                  <Label>Sale or Purchase *</Label>
+                  <Label>Vente ou achat *</Label>
                   <Select value={flowChoice} onValueChange={(v) => { const f = v as "sale" | "purchase"; setFlowChoice(f); setDirection(defaultDirectionFor(f)) }}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sale">Sale</SelectItem>
-                      <SelectItem value="purchase">Purchase</SelectItem>
+                      <SelectItem value="sale">Vente</SelectItem>
+                      <SelectItem value="purchase">Achat</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -409,33 +423,33 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Lines</CardTitle>
+            <CardTitle>Lignes</CardTitle>
             <div className="flex gap-2">
               <Select onValueChange={addFromArticle}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Ajouter depuis un article" /></SelectTrigger>
                 <SelectContent>
                   {sortedArticles.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                    <SelectItem key={a.id} value={a.id} className={organizationItemClassName(isArticleMyOrganization(a))}>
                       {a.code} — {a.designation}
-                      {isArticleMyPme(a) && <PmeBadge />}
+                      {isArticleMyOrganization(a) && <OrganizationBadge />}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="button" variant="outline" onClick={addFreeformLine}>Freeform line</Button>
+              <Button type="button" variant="outline" onClick={addFreeformLine}>Ligne libre</Button>
             </div>
           </CardHeader>
           <CardContent>
             {lines.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No lines added yet</div>
+              <div className="text-center py-8 text-muted-foreground">Aucune ligne ajoutée</div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-2">Code</th>
-                    <th className="text-left p-2">Designation</th>
-                    <th className="text-right p-2">Qty</th>
-                    <th className="text-left p-2">Unit</th>
+                    <th className="text-left p-2">Désignation</th>
+                    <th className="text-right p-2">Qté</th>
+                    <th className="text-left p-2">Unité</th>
                     <th className="text-right p-2">PUHT</th>
                     <th className="text-left p-2">Taxes</th>
                     <th></th>
@@ -456,7 +470,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                           </Button>
                         </td>
                         <td className="p-1 whitespace-nowrap">
-                          <Button type="button" variant="ghost" size="sm" onClick={() => addConsignmentLine(i)} title="Add a packaging deposit for this line">+ Deposit</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addConsignmentLine(i)} title="Ajouter une consigne d'emballage pour cette ligne">+ Consigne</Button>
                           <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button>
                         </td>
                       </tr>
@@ -477,7 +491,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
         {lines.some((l) => l.consignments.length > 0) && (
           <Card>
-            <CardHeader><CardTitle>Consignments</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Consignations</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {lines.map((line, i) => {
                 if (line.consignments.length === 0) return null
@@ -490,7 +504,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                     )}
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Container Size</th><th className="text-right p-2">Containers</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th><th></th></tr>
+                        <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Taille du contenant</th><th className="text-right p-2">Contenants</th><th className="text-right p-2">Consigne/unité</th><th className="text-right p-2">Total</th><th></th></tr>
                       </thead>
                       <tbody>
                         {line.consignments.map((c, j) => (
@@ -513,24 +527,34 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         )}
 
         <Card>
-          <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Charges de la facture</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Appliquées une seule fois à la facture entière, pas par ligne — le timbre fiscal notamment.
+            </p>
+            <DocumentChargesEditor charges={documentCharges} onChange={setDocumentCharges} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Totaux</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>HT Subtotal:</span><span>{totals.subtotal_excl_tax.toFixed(2)} TND</span></div>
+            <div className="flex justify-between"><span>Total HT :</span><span>{totals.subtotal_excl_tax.toFixed(2)} TND</span></div>
             {Object.entries(totals.chargesByKey).map(([key, amount]) => (
-              <div key={key} className="flex justify-between"><span>{key}:</span><span>{amount.toFixed(2)} TND</span></div>
+              <div key={key} className="flex justify-between"><span>{key} :</span><span>{amount.toFixed(2)} TND</span></div>
             ))}
-            <div className="flex justify-between font-bold border-t pt-2"><span>TTC:</span><span>{totals.total_incl_tax.toFixed(2)} TND</span></div>
+            <div className="flex justify-between font-bold border-t pt-2"><span>TTC :</span><span>{totals.total_incl_tax.toFixed(2)} TND</span></div>
           </CardContent>
         </Card>
 
         <div className="grid gap-2">
           <Label>Notes</Label>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes..." />
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (facultatif)..." />
         </div>
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Invoice"}</Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer la facture"}</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button>
         </div>
       </form>
     </div>

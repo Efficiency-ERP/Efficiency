@@ -35,21 +35,21 @@ export function PartyTypeField({ value, onChange, contacts }: { value: string; o
   return (
     <div className="space-y-2">
       <Select value={customMode ? OTHER_SENTINEL : value} onValueChange={handleSelect}>
-        <SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger>
+        <SelectTrigger><SelectValue placeholder="Sélectionner un type" /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="customer">Customer</SelectItem>
-          <SelectItem value="supplier">Supplier</SelectItem>
-          <SelectItem value="both">Both</SelectItem>
+          <SelectItem value="customer">Client</SelectItem>
+          <SelectItem value="supplier">Fournisseur</SelectItem>
+          <SelectItem value="both">Les deux</SelectItem>
           {suggestions.length > 0 && <SelectSeparator />}
           {suggestions.map((s) => (
             <SelectItem key={s} value={s}>{s}</SelectItem>
           ))}
           <SelectSeparator />
-          <SelectItem value={OTHER_SENTINEL}>Other...</SelectItem>
+          <SelectItem value={OTHER_SENTINEL}>Autre...</SelectItem>
         </SelectContent>
       </Select>
       {customMode && (
-        <Input autoFocus placeholder="Enter a new party type" value={value} onChange={(e) => onChange(e.target.value)} />
+        <Input autoFocus placeholder="Saisir un nouveau type de tiers" value={value} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   )

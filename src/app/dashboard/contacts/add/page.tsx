@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createContact } from "@/lib/supabase/contacts"
 import { useContactsStore } from "@/contexts/contacts-store"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,7 +15,7 @@ import { PartyTypeField } from "@/components/party-type-field"
 export default function AddContactPage() {
   const router = useRouter()
   const { addContact, contacts, organizations } = useContactsStore()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const logAction = useActionLog("contacts")
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -35,18 +35,18 @@ export default function AddContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.company_name) {
-      alert("Company name is required")
+      alert("La raison sociale est requise")
       return
     }
     if (!form.party_type) {
-      alert("Party type is required")
+      alert("Le type de tiers est requis")
       return
     }
     const tenantId = selectedOrgId !== "all"
       ? organizations.find((o) => o.id === selectedOrgId)?.tenant_id
       : organizations[0]?.tenant_id
     if (!tenantId) {
-      alert("No organization available to attach this contact to")
+      alert("Aucune organisation disponible pour rattacher ce contact")
       return
     }
 
@@ -77,7 +77,7 @@ export default function AddContactPage() {
       router.push("/dashboard/contacts")
     } catch (err) {
       console.error(err)
-      alert("Failed to create contact")
+      alert("Échec de la création du contact")
     } finally {
       setLoading(false)
     }
@@ -85,19 +85,19 @@ export default function AddContactPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Add Contact</h1>
+      <h1 className="text-2xl font-bold">Ajouter un contact</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Basic Info</CardTitle>
+            <CardTitle>Informations générales</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="company_name">Company Name *</Label>
+              <Label htmlFor="company_name">Raison sociale *</Label>
               <Input id="company_name" value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} required />
             </div>
             <div className="grid gap-2">
-              <Label>Party Type *</Label>
+              <Label>Type de tiers *</Label>
               <PartyTypeField value={form.party_type} onChange={(v) => setForm({ ...form, party_type: v })} contacts={contacts} />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -106,7 +106,7 @@ export default function AddContactPage() {
                 <Input id="mf" value={form.mf} onChange={(e) => setForm({ ...form, mf: e.target.value })} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="unique_id">Unique ID</Label>
+                <Label htmlFor="unique_id">Identifiant unique</Label>
                 <Input id="unique_id" value={form.unique_id} onChange={(e) => setForm({ ...form, unique_id: e.target.value })} />
               </div>
             </div>
@@ -115,24 +115,24 @@ export default function AddContactPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Address</CardTitle>
+            <CardTitle>Adresse</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="address_line1">Address</Label>
+              <Label htmlFor="address_line1">Adresse</Label>
               <Input id="address_line1" value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="address_city">City</Label>
+                <Label htmlFor="address_city">Ville</Label>
                 <Input id="address_city" value={form.address_city} onChange={(e) => setForm({ ...form, address_city: e.target.value })} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="address_zipCode">Zip Code</Label>
+                <Label htmlFor="address_zipCode">Code postal</Label>
                 <Input id="address_zipCode" value={form.address_zipCode} onChange={(e) => setForm({ ...form, address_zipCode: e.target.value })} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="address_country">Country</Label>
+                <Label htmlFor="address_country">Pays</Label>
                 <Input id="address_country" value={form.address_country} onChange={(e) => setForm({ ...form, address_country: e.target.value })} />
               </div>
             </div>
@@ -146,7 +146,7 @@ export default function AddContactPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">Téléphone</Label>
                 <Input id="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
               <div className="grid gap-2">
@@ -162,8 +162,8 @@ export default function AddContactPage() {
         </Card>
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Contact"}</Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer le contact"}</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button>
         </div>
       </form>
     </div>

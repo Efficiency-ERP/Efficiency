@@ -31,24 +31,24 @@ const NavigationContext = createContext<NavigationContextType | undefined>(undef
 // by both flows, not owned by either side.
 const navigationItems: NavigationItem[] = [
   {
-    title: "Dashboard",
+    title: "Tableau de bord",
     url: "/dashboard",
     icon: Home,
   },
   {
-    title: "Sales",
+    title: "Ventes",
     url: "/dashboard/sales",
     icon: FileSignature,
     activePaths: ["/dashboard/quotes", "/dashboard/deliveries"],
   },
   {
-    title: "Purchasing",
+    title: "Achats",
     url: "/dashboard/purchasing",
     icon: ShoppingCart,
     activePaths: ["/dashboard/orders"],
   },
   {
-    title: "Invoices",
+    title: "Factures",
     url: "/dashboard/invoices",
     icon: FileText,
   },
@@ -82,7 +82,7 @@ function findNavigationItem(items: NavigationItem[], path: string): NavigationIt
 
 function generateBreadcrumbs(path: string): Array<{ label: string; href: string; isLast: boolean }> {
   const breadcrumbs = [
-    { label: "Dashboard", href: "/dashboard", isLast: false }
+    { label: "Tableau de bord", href: "/dashboard", isLast: false }
   ]
 
   if (path === "/dashboard") {
@@ -93,16 +93,16 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
   const pathSegments = path.split("/").filter(Boolean)
 
   if (pathSegments.includes("quotes")) {
-    breadcrumbs.push({ label: "Sales", href: "/dashboard/sales", isLast: false })
-    breadcrumbs.push({ label: "Quotes", href: "/dashboard/quotes", isLast: true })
+    breadcrumbs.push({ label: "Ventes", href: "/dashboard/sales", isLast: false })
+    breadcrumbs.push({ label: "Devis", href: "/dashboard/quotes", isLast: true })
   } else if (pathSegments.includes("deliveries")) {
-    breadcrumbs.push({ label: "Sales", href: "/dashboard/sales", isLast: false })
-    breadcrumbs.push({ label: "Deliveries", href: "/dashboard/deliveries", isLast: true })
+    breadcrumbs.push({ label: "Ventes", href: "/dashboard/sales", isLast: false })
+    breadcrumbs.push({ label: "Bons de livraison", href: "/dashboard/deliveries", isLast: true })
   } else if (pathSegments.includes("orders")) {
-    breadcrumbs.push({ label: "Purchasing", href: "/dashboard/purchasing", isLast: false })
-    breadcrumbs.push({ label: "Orders", href: "/dashboard/orders", isLast: true })
+    breadcrumbs.push({ label: "Achats", href: "/dashboard/purchasing", isLast: false })
+    breadcrumbs.push({ label: "Commandes", href: "/dashboard/orders", isLast: true })
   } else if (pathSegments.includes("invoices")) {
-    breadcrumbs.push({ label: "Invoices", href: "/dashboard/invoices", isLast: true })
+    breadcrumbs.push({ label: "Factures", href: "/dashboard/invoices", isLast: true })
   } else if (pathSegments.includes("contacts")) {
     breadcrumbs.push({ label: "Contacts", href: "/dashboard/contacts", isLast: true })
   } else if (pathSegments.includes("articles")) {
@@ -112,21 +112,21 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
     breadcrumbs.push({ label: "Stock", href: "/dashboard/stock", isLast: true })
   } else if (pathSegments.includes("issues")) {
     breadcrumbs.push({ label: "Articles", href: "/dashboard/articles", isLast: false })
-    breadcrumbs.push({ label: "Issues", href: "/dashboard/issues", isLast: true })
+    breadcrumbs.push({ label: "Bons de sortie", href: "/dashboard/issues", isLast: true })
   } else if (pathSegments.includes("consignments")) {
-    breadcrumbs.push({ label: "Consignments", href: "/dashboard/consignments", isLast: true })
+    breadcrumbs.push({ label: "Consignations", href: "/dashboard/consignments", isLast: true })
   } else if (pathSegments.includes("profile")) {
-    breadcrumbs.push({ label: "Profile", href: "/dashboard/profile", isLast: true })
-  } else if (pathSegments.includes("pme")) {
+    breadcrumbs.push({ label: "Profil", href: "/dashboard/profile", isLast: true })
+  } else if (pathSegments.includes("organizations")) {
     const isAdd = pathSegments.includes("add")
-    breadcrumbs.push({ label: "PME", href: "/dashboard/pme", isLast: !isAdd })
+    breadcrumbs.push({ label: "Organisations", href: "/dashboard/organizations", isLast: !isAdd })
     if (isAdd) {
-      breadcrumbs.push({ label: "Add PME", href: "/dashboard/pme/add", isLast: true })
+      breadcrumbs.push({ label: "Ajouter une organisation", href: "/dashboard/organizations/add", isLast: true })
     }
   } else if (pathSegments.includes("settings")) {
-    breadcrumbs.push({ label: "Settings", href: "/dashboard/settings", isLast: true })
+    breadcrumbs.push({ label: "Paramètres", href: "/dashboard/settings", isLast: true })
   } else if (pathSegments.includes("logs")) {
-    breadcrumbs.push({ label: "Logs", href: "/dashboard/logs", isLast: true })
+    breadcrumbs.push({ label: "Journaux", href: "/dashboard/logs", isLast: true })
   }
 
   return breadcrumbs

@@ -4,7 +4,7 @@ import { castJson } from "@/lib/utils"
 import type {
   Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance,
   ConsignmentPackaging, Consignment, Delivery, DeliveryLine, Order, OrderLine, OrderType, Issue, IssueLine,
-  Quote, QuoteLine, QuoteStatus, DocumentStatus, TaxCharge, InvoiceTotals, DocumentAttributes, CounterpartyKind, PaymentMethod,
+  Quote, QuoteLine, QuoteStatus, DocumentStatus, TaxCharge, DocumentCharge, InvoiceTotals, DocumentAttributes, CounterpartyKind, PaymentMethod, Json,
 } from "@/types/database"
 
 // ============================================
@@ -167,6 +167,7 @@ type InvoiceInput = {
   source_delivery_id?: string | null
   original_invoice_id?: string | null
   notes?: string | null
+  charges?: DocumentCharge[]
 }
 
 export async function getInvoices(organizationId?: string): Promise<Invoice[]> {
@@ -305,7 +306,8 @@ export async function createInvoice(
 ): Promise<Invoice> {
   const supabase = createClient()
 
-  const totals = computeInvoiceTotals(lines.map((l) => ({ ...l, tax_charges: l.tax_charges as unknown as TaxCharge[] })))
+  const documentCharges = invoice.charges || []
+  const totals = computeInvoiceTotals(lines.map((l) => ({ ...l, tax_charges: l.tax_charges as unknown as TaxCharge[] })), documentCharges)
 
   const flow: "sale" | "purchase" =
     invoice.source_quote_id ? "sale" : invoice.source_order_id ? "purchase" : invoice.direction === "in" ? "sale" : "purchase"
@@ -331,6 +333,9 @@ export async function createInvoice(
       attributes,
       notes: invoice.notes,
       totals,
+      // totals.chargesByKey is a display rollup; the structured array is kept
+      // alongside it because kind/rate/amount are what an XML serializer needs.
+      charges: documentCharges as unknown as Json,
     })
     .select()
     .single()
@@ -747,13 +752,16 @@ export async function createIssue(
 // UTILITY FUNCTIONS
 // ============================================
 
-export function computeInvoiceTotals(lines: {
-  unit_price_excl_tax: number
-  discount_percent?: number | null
-  quantity: number
-  transfer_price?: number | null
-  tax_charges: TaxCharge[]
-}[]) {
+export function computeInvoiceTotals(
+  lines: {
+    unit_price_excl_tax: number
+    discount_percent?: number | null
+    quantity: number
+    transfer_price?: number | null
+    tax_charges: TaxCharge[]
+  }[],
+  documentCharges: DocumentCharge[] = []
+) {
   let subtotalExclTax = 0
   const chargesByKey: Record<string, number> = {}
   let totalInclTax = 0
@@ -776,6 +784,35 @@ export function computeInvoiceTotals(lines: {
       lineTotal += amount
     }
     totalInclTax += lineTotal
+  }
+
+  // Document charges fold into the SAME chargesByKey rollup as line charges, so
+  // the stored total and every printed breakdown are computed once and can
+  // never disagree. A percent charge keys like a line charge; a fixed charge
+  // keys as its bare label, which parseStoredCharges in the print view model
+  // already reads back as "no rate" — so a timbre fiscal prints without a
+  // percentage without the PDF needing to know it exists.
+  // Percent charges are evaluated against the totals BEFORE any document charge
+  // is applied, so reordering rows in the editor cannot change the result.
+  const documentBaseExclTax = subtotalExclTax
+  const documentBaseInclTax = totalInclTax
+
+  for (const charge of documentCharges) {
+    let amount: number
+    let key: string
+
+    if (charge.kind === "percent") {
+      const rate = charge.rate || 0
+      const base = charge.base === "ttc" ? documentBaseInclTax : documentBaseExclTax
+      amount = (base * rate) / 100
+      key = `${charge.label} ${rate}%`
+    } else {
+      amount = charge.amount || 0
+      key = charge.label
+    }
+
+    chargesByKey[key] = (chargesByKey[key] || 0) + amount
+    totalInclTax += amount
   }
 
   return { subtotal_excl_tax: subtotalExclTax, chargesByKey, total_incl_tax: totalInclTax }

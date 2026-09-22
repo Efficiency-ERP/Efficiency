@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { getStockMovements } from "@/lib/supabase/stock"
 import { getDeliveries } from "@/lib/supabase/invoices"
@@ -21,7 +21,7 @@ const SOURCE_ROUTES: Record<string, string> = {
 
 export default function StockMovementsPage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { articles } = useArticlesStore()
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [deliveries, setDeliveries] = useState<Delivery[]>([])
@@ -76,21 +76,21 @@ export default function StockMovementsPage() {
           <button onClick={() => router.push(`/dashboard/articles/${article.id}`)} className="underline hover:no-underline">
             {article.code} — {article.designation}
           </button>
-        ) : "Unknown article"
+        ) : "Article inconnu"
       },
     },
     {
       accessorKey: "direction",
-      header: "Direction",
+      header: "Sens",
       cell: ({ row }) => (
         <Badge variant={row.original.direction === "in" ? "default" : "secondary"}>
-          {row.original.direction === "in" ? "In" : "Out"}
+          {row.original.direction === "in" ? "Entrée" : "Sortie"}
         </Badge>
       ),
     },
     {
       accessorKey: "quantity_delta",
-      header: "Quantity",
+      header: "Quantité",
       cell: ({ row }) => {
         const qty = row.original.quantity_delta
         return <span className={qty < 0 ? "text-destructive" : "text-emerald-600"}>{qty > 0 ? `+${qty}` : qty}</span>
@@ -108,7 +108,7 @@ export default function StockMovementsPage() {
               onClick={() => router.push(`${SOURCE_ROUTES[source_type]}/${source_document_id}`)}
               className="underline hover:no-underline"
             >
-              {delivery ? delivery.number : "Delivery"}
+              {delivery ? delivery.number : "Bon de livraison"}
             </button>
           )
         }
@@ -121,20 +121,20 @@ export default function StockMovementsPage() {
     <div className="space-y-4">
       <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Stock Movements</h1>
+        <h1 className="text-2xl font-bold">Mouvements de stock</h1>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Loading stock movements...</div>
+        <div className="text-muted-foreground">Chargement des mouvements de stock...</div>
       ) : (
         <>
           <div className="flex gap-4">
-            <Input placeholder="Search by article code or designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <Input placeholder="Rechercher par code article ou désignation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
             <Select value={directionFilter} onValueChange={setDirectionFilter}>
-              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Tous les sens" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Directions</SelectItem>
-                <SelectItem value="in">In</SelectItem>
-                <SelectItem value="out">Out</SelectItem>
+                <SelectItem value="all">Tous les sens</SelectItem>
+                <SelectItem value="in">Entrée</SelectItem>
+                <SelectItem value="out">Sortie</SelectItem>
               </SelectContent>
             </Select>
           </div>

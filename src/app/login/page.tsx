@@ -44,7 +44,7 @@ export default function LoginPage() {
 			<div className="bg-muted relative hidden lg:block">
 				<img
 					src="/login-illustration.svg"
-					alt="Efficiency ERP management platform"
+					alt="Plateforme de gestion ERP Efficiency"
 					className="absolute inset-0 h-full w-full object-cover"
 				/>
 			</div>
@@ -83,7 +83,7 @@ function LoginForm() {
 	return (
 		<form onSubmit={handleSubmit} className="flex flex-col gap-6">
 			<div className="flex flex-col gap-2 text-center">
-				<h1 className="text-2xl font-bold">Login</h1>
+				<h1 className="text-2xl font-bold">Connexion</h1>
 				<p className="text-balance text-muted-foreground">
 					Enter your email below to login to your account
 				</p>
@@ -107,7 +107,7 @@ function LoginForm() {
 				</div>
 				<div className="grid gap-2">
 					<div className="flex items-center">
-						<Label htmlFor="password">Password</Label>
+						<Label htmlFor="password">Mot de passe</Label>
 						<a
 							href="#"
 							className="ml-auto inline-block text-sm underline-offset-4 hover:underline"

@@ -10,7 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Efficiency",
-  description: "PME Management Application",
+  description: "Plateforme de gestion pour PME",
   icons: {
     icon: "/icon.svg",
     shortcut: "/icon.svg",
