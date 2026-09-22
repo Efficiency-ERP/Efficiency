@@ -23,15 +23,15 @@ import { TeamSwitcher } from "@/components/team-switcher"
 import { ContactsProvider } from "@/contexts/contacts-store"
 import { ArticlesProvider } from "@/contexts/articles-store"
 import { LogsProvider } from "@/contexts/logs-provider"
-import { PMEProvider } from "@/contexts/pme-provider"
+import { OrganizationProvider } from "@/contexts/organization-provider"
 import { SidebarPrefsProvider } from "@/contexts/sidebar-prefs-provider"
 import { useUser } from "@/contexts/user-context"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-function PMEWrapper({ children }: { children: React.ReactNode }) {
+function OrganizationWrapper({ children }: { children: React.ReactNode }) {
   const { organizations } = useUser()
-  return <PMEProvider organizations={organizations}>{children}</PMEProvider>
+  return <OrganizationProvider organizations={organizations}>{children}</OrganizationProvider>
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -61,7 +61,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ContactsProvider>
-      <PMEWrapper>
+      <OrganizationWrapper>
         <ArticlesProvider>
           <LogsProvider>
             <SidebarPrefsProvider>
@@ -109,7 +109,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </SidebarPrefsProvider>
           </LogsProvider>
         </ArticlesProvider>
-      </PMEWrapper>
+      </OrganizationWrapper>
     </ContactsProvider>
   )
 }

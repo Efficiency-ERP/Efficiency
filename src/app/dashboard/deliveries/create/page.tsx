@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createDelivery, getNextDocumentNumber, getQuote, getQuoteLines } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
@@ -13,15 +13,15 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 
 export default function CreateDeliveryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
   const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
-  const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("deliveries")
   const sourceQuoteId = searchParams.get("sourceQuoteId")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
@@ -82,8 +82,8 @@ export default function CreateDeliveryPage() {
     } catch { alert("Failed to create delivery") } finally { setLoading(false) }
   }
 
-  const filteredContacts = sortMyPmeFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyPme)
-  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
+  const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
   const pageTitle = sourceLabel ? `Confirm Delivery — from ${sourceLabel}` : "Create Delivery (BL)"
 
   if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
@@ -113,9 +113,9 @@ export default function CreateDeliveryPage() {
                   <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
                   <SelectContent>
                     {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                      <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
+                        {isContactMyOrganization(c) && <OrganizationBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -136,9 +136,9 @@ export default function CreateDeliveryPage() {
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
                 <SelectContent>
                   {sortedArticles.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                    <SelectItem key={a.id} value={a.id} className={organizationItemClassName(isArticleMyOrganization(a))}>
                       {a.code} — {a.designation}
-                      {isArticleMyPme(a) && <PmeBadge />}
+                      {isArticleMyOrganization(a) && <OrganizationBadge />}
                     </SelectItem>
                   ))}
                 </SelectContent>

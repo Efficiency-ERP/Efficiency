@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { formatTND, castJson, withTimeout } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import SalesBarChart from "@/components/SalesBarChart"
@@ -28,7 +28,7 @@ function getRangeStartDate(range: Range): Date {
 export default function DashboardHome() {
   const router = useRouter()
   const { articles } = useArticlesStore()
-  const { selectedOrgId, selectedOrgName } = usePMESelection()
+  const { selectedOrgId, selectedOrgName } = useOrganizationSelection()
   const [range, setRange] = useState<Range>("30")
 
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([])

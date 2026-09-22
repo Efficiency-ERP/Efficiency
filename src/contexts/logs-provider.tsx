@@ -3,11 +3,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { LogsContext, type LogsContextType, type LogEntry } from "./logs-context"
 import { getLogs, createLog } from "@/lib/supabase/logs"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 
 export function LogsProvider({ children }: { children: React.ReactNode }) {
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
 
   useEffect(() => {
     async function load() {

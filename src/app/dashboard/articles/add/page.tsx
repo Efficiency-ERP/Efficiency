@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createArticle } from "@/lib/supabase/articles"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,7 +16,7 @@ import type { Json, TaxCharge } from "@/types/database"
 
 export default function AddArticlePage() {
   const router = useRouter()
-  const { selectedOrgId, selectedOrgName } = usePMESelection()
+  const { selectedOrgId, selectedOrgName } = useOrganizationSelection()
   const { addArticle } = useArticlesStore()
   const logAction = useActionLog("articles")
   const [loading, setLoading] = useState(false)

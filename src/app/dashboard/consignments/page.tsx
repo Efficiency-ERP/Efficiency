@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ export default function ConsignmentsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const side = searchParams.get("side") // "sale" | "purchase" | null (direct nav, shows both)
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts } = useContactsStore()
   const [balances, setBalances] = useState<ConsignmentBalance[]>([])
   const [loading, setLoading] = useState(true)

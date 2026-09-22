@@ -105,7 +105,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">{org.id.slice(0, 8)}...</Badge>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/pme/${org.id}/edit`}>Edit</Link>
+                      <Link href={`/dashboard/organizations/${org.id}/edit`}>Edit</Link>
                     </Button>
                   </div>
                 </li>

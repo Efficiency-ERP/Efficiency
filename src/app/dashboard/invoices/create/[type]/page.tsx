@@ -2,10 +2,10 @@
 
 import { use, useState, useEffect, Fragment } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createInvoice, getNextDocumentNumber, defaultDirectionFor, computeInvoiceTotals, consignmentsForLine, coveredQuantity, getConsignments, getInvoice, getInvoiceLines, getOrder, getOrderLines, getQuote, getQuoteLines, markOrderFinal, markQuoteAccepted } from "@/lib/supabase/invoices"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
 import { DocumentChargesEditor, stampCharge } from "@/components/document-charges-editor"
@@ -24,10 +24,10 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const { type } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
-  const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("invoices")
 
   const invoiceType = type as "standard" | "credit" | "debit"
@@ -66,7 +66,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const isMoneyOut = direction === "out"
 
   // Auto-select the issuing organization when there's only one to choose from
-  // (the global PME filter already covers the case where one is pre-selected).
+  // (the global organization filter already covers the case where one is pre-selected).
   useEffect(() => {
     if (isInferredFlow || organizationId) return
     if (organizations.length === 1) setOrganizationId(organizations[0].id)
@@ -299,14 +299,14 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
     }
   }
 
-  const filteredContacts = sortMyPmeFirst(
+  const filteredContacts = sortMyOrganizationsFirst(
     contacts.filter((c) =>
       c.internal_organization_id !== organizationId &&
       (invoiceType === "standard" && !sourceOrderId ? c.party_type !== "supplier" : true)
     ),
-    isContactMyPme
+    isContactMyOrganization
   )
-  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
   const totals = computeInvoiceTotals(lines, documentCharges)
 
@@ -371,9 +371,9 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                       <SelectItem value="__new__">+ New Contact</SelectItem>
                       <SelectSeparator />
                       {filteredContacts.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                        <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                           {c.company_name}
-                          {isContactMyPme(c) && <PmeBadge />}
+                          {isContactMyOrganization(c) && <OrganizationBadge />}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -429,9 +429,9 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
                 <SelectContent>
                   {sortedArticles.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                    <SelectItem key={a.id} value={a.id} className={organizationItemClassName(isArticleMyOrganization(a))}>
                       {a.code} — {a.designation}
-                      {isArticleMyPme(a) && <PmeBadge />}
+                      {isArticleMyOrganization(a) && <OrganizationBadge />}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,7 @@ import type { Delivery } from "@/types/database"
 
 export default function DeliveriesListPage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts } = useContactsStore()
   const [search, setSearch] = useState("")
   const [deliveries, setDeliveries] = useState<Delivery[]>([])

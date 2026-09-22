@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { getStockMovements } from "@/lib/supabase/stock"
 import { getDeliveries } from "@/lib/supabase/invoices"
@@ -21,7 +21,7 @@ const SOURCE_ROUTES: Record<string, string> = {
 
 export default function StockMovementsPage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { articles } = useArticlesStore()
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [deliveries, setDeliveries] = useState<Delivery[]>([])

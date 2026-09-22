@@ -2,10 +2,10 @@
 
 import { useState, Fragment } from "react"
 import { useRouter } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createQuote, getNextDocumentNumber, computeInvoiceTotals, consignmentsForLine, coveredQuantity } from "@/lib/supabase/invoices"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
@@ -14,17 +14,17 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 import { castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
 import type { Json, TaxCharge } from "@/types/database"
 
 export default function CreateQuotePage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
-  const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("quotes")
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
@@ -129,8 +129,8 @@ export default function CreateQuotePage() {
     }
   }
 
-  const filteredContacts = sortMyPmeFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyPme)
-  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
+  const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
   const totals = computeInvoiceTotals(lines)
 
@@ -160,9 +160,9 @@ export default function CreateQuotePage() {
                   <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
                   <SelectContent>
                     {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                      <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
+                        {isContactMyOrganization(c) && <OrganizationBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -184,9 +184,9 @@ export default function CreateQuotePage() {
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
                 <SelectContent>
                   {sortedArticles.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                    <SelectItem key={a.id} value={a.id} className={organizationItemClassName(isArticleMyOrganization(a))}>
                       {a.code} — {a.designation}
-                      {isArticleMyPme(a) && <PmeBadge />}
+                      {isArticleMyOrganization(a) && <OrganizationBadge />}
                     </SelectItem>
                   ))}
                 </SelectContent>

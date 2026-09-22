@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useContactsStore } from "@/contexts/contacts-store"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { DataTable } from "@/components/data-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 export default function ListContactsPage() {
   const router = useRouter()
   const { contacts, loading } = useContactsStore()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const customTypes = useMemo(() => partyTypeSuggestions(contacts), [contacts])
@@ -38,7 +38,7 @@ export default function ListContactsPage() {
       if (typeFilter !== "all" && c.party_type !== typeFilter) {
         return false
       }
-      // PME filter
+      // Organization filter
       if (selectedOrgId !== "all") {
         if (c.is_internal_org && c.internal_organization_id !== selectedOrgId) return false
       }

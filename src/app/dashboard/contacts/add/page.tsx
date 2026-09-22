@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createContact } from "@/lib/supabase/contacts"
 import { useContactsStore } from "@/contexts/contacts-store"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,7 +15,7 @@ import { PartyTypeField } from "@/components/party-type-field"
 export default function AddContactPage() {
   const router = useRouter()
   const { addContact, contacts, organizations } = useContactsStore()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const logAction = useActionLog("contacts")
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({

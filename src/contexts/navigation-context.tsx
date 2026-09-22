@@ -117,11 +117,11 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
     breadcrumbs.push({ label: "Consignments", href: "/dashboard/consignments", isLast: true })
   } else if (pathSegments.includes("profile")) {
     breadcrumbs.push({ label: "Profile", href: "/dashboard/profile", isLast: true })
-  } else if (pathSegments.includes("pme")) {
+  } else if (pathSegments.includes("organizations")) {
     const isAdd = pathSegments.includes("add")
-    breadcrumbs.push({ label: "PME", href: "/dashboard/pme", isLast: !isAdd })
+    breadcrumbs.push({ label: "PME", href: "/dashboard/organizations", isLast: !isAdd })
     if (isAdd) {
-      breadcrumbs.push({ label: "Add PME", href: "/dashboard/pme/add", isLast: true })
+      breadcrumbs.push({ label: "Add PME", href: "/dashboard/organizations/add", isLast: true })
     }
   } else if (pathSegments.includes("settings")) {
     breadcrumbs.push({ label: "Settings", href: "/dashboard/settings", isLast: true })

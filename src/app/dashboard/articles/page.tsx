@@ -2,14 +2,14 @@
 
 import { useState, useMemo } from "react"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { usePMESelection } from "@/contexts/pme-context"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useOrganizationSelection } from "@/contexts/organization-context"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { DataTable } from "@/components/data-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { PmeBadge } from "@/components/pme-option"
+import { OrganizationBadge } from "@/components/organization-option"
 import { useRouter } from "next/navigation"
 import type { Article, Stock, Consignment, TaxCharge } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -21,8 +21,8 @@ import { ARTICLES_TABS } from "@/lib/section-tabs-config"
 export default function ListArticlesPage() {
   const router = useRouter()
   const { articles, loading } = useArticlesStore()
-  const { selectedOrgId } = usePMESelection()
-  const { isArticleMyPme } = useMyPme()
+  const { selectedOrgId } = useOrganizationSelection()
+  const { isArticleMyOrganization } = useMyOrganization()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [consignmentFilter, setConsignmentFilter] = useState<string>("all")
@@ -61,7 +61,7 @@ export default function ListArticlesPage() {
         <div className="flex items-center gap-2">
           {row.original.designation}
           <Badge variant="outline">{row.original.type}</Badge>
-          {isArticleMyPme(row.original) && <PmeBadge />}
+          {isArticleMyOrganization(row.original) && <OrganizationBadge />}
         </div>
       ),
     },

@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createIssue, getNextDocumentNumber } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
@@ -13,14 +13,14 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 
 export default function CreateIssuePage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
   const { articles } = useArticlesStore()
-  const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("issues")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
@@ -50,8 +50,8 @@ export default function CreateIssuePage() {
     } catch { alert("Failed to create issue") } finally { setLoading(false) }
   }
 
-  const filteredContacts = sortMyPmeFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyPme)
-  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
+  const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -78,9 +78,9 @@ export default function CreateIssuePage() {
                   <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
                   <SelectContent>
                     {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                      <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
+                        {isContactMyOrganization(c) && <OrganizationBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -101,9 +101,9 @@ export default function CreateIssuePage() {
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
                 <SelectContent>
                   {sortedArticles.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                    <SelectItem key={a.id} value={a.id} className={organizationItemClassName(isArticleMyOrganization(a))}>
                       {a.code} — {a.designation}
-                      {isArticleMyPme(a) && <PmeBadge />}
+                      {isArticleMyOrganization(a) && <OrganizationBadge />}
                     </SelectItem>
                   ))}
                 </SelectContent>

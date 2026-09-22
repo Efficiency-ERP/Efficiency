@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,7 @@ import type { Invoice, InvoiceTotals, InvoiceType } from "@/types/database"
 
 export default function AllInvoicesPage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [invoices, setInvoices] = useState<Invoice[]>([])

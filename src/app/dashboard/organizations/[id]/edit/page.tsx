@@ -24,7 +24,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
   const router = useRouter()
   const { organizations, loading, updateOrganization: updateInStore } = useContactsStore()
   const organization = organizations.find((o) => o.id === id)
-  const logAction = useActionLog("pme")
+  const logAction = useActionLog("organizations")
 
   const [saving, setSaving] = useState(false)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -97,7 +97,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
   if (!organization) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
       <h2 className="text-xl font-bold">Organisation introuvable</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/pme")}>Back to PME</Button>
+      <Button variant="outline" onClick={() => router.push("/dashboard/organizations")}>Back to PME</Button>
     </div>
   )
 
@@ -175,8 +175,8 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
 
       const updated = await updateOrganization(id, patch)
       updateInStore(id, updated)
-      await logAction(`Updated PME ${updated.name}`, updated.id, updated.id)
-      router.push("/dashboard/pme")
+      await logAction(`Updated organization ${updated.name}`, updated.id, updated.id)
+      router.push("/dashboard/organizations")
     } catch (err) {
       console.error(err)
       alert("Failed to update organization")

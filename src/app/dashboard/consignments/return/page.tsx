@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createConsignmentReturn, getConsignmentBalances } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 import { formatTND } from "@/lib/utils"
 import { SectionTabs } from "@/components/section-tabs"
 import { SALES_TABS, PURCHASING_TABS } from "@/lib/section-tabs-config"
@@ -22,9 +22,9 @@ export default function CreateConsignmentReturnPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const side = searchParams.get("side") // "sale" | "purchase" | null
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
-  const { isContactMyPme } = useMyPme()
+  const { isContactMyOrganization } = useMyOrganization()
   const logAction = useActionLog("consignments")
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
@@ -87,7 +87,7 @@ export default function CreateConsignmentReturnPage() {
     : side === "sale"
       ? contacts.filter((c) => c.party_type !== "supplier")
       : contacts
-  const sortedContacts = sortMyPmeFirst(scopedContacts, isContactMyPme)
+  const sortedContacts = sortMyOrganizationsFirst(scopedContacts, isContactMyOrganization)
   const total = lines.reduce((s, l) => s + l.quantity * l.deposit_value, 0)
 
   return (
@@ -117,9 +117,9 @@ export default function CreateConsignmentReturnPage() {
                   <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
                   <SelectContent>
                     {sortedContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                      <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
+                        {isContactMyOrganization(c) && <OrganizationBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
