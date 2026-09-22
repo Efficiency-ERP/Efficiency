@@ -50,7 +50,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <span className="text-muted-foreground text-sm">Loading...</span>
+        <span className="text-muted-foreground text-sm">Chargement...</span>
       </div>
     )
   }

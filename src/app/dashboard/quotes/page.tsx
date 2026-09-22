@@ -58,29 +58,29 @@ export default function AllQuotesPage() {
     <div className="space-y-4">
       <SectionTabs tabs={SALES_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Quotes</h1>
-        <Button onClick={() => router.push("/dashboard/quotes/create")}>Create Quote</Button>
+        <h1 className="text-2xl font-bold">Devis</h1>
+        <Button onClick={() => router.push("/dashboard/quotes/create")}>Créer un devis</Button>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Loading quotes...</div>
+        <div className="text-muted-foreground">Chargement des devis...</div>
       ) : (
         <>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{quotes.length}</CardContent></Card>
           <div className="flex gap-4">
             <Input
-              placeholder="Search by number..."
+              placeholder="Rechercher par numéro..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-sm"
             />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Tous les statuts" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="accepted">Accepted</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="draft">Brouillon</SelectItem>
+                <SelectItem value="sent">Envoyé</SelectItem>
+                <SelectItem value="accepted">Accepté</SelectItem>
+                <SelectItem value="rejected">Refusé</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -88,16 +88,16 @@ export default function AllQuotesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3">Number</th>
+                  <th className="text-left p-3">Numéro</th>
                   <th className="text-left p-3">Date</th>
-                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Statut</th>
                   <th className="text-right p-3">TTC</th>
                   <th className="text-right p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredQuotes.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">No quotes found</td></tr>
+                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Aucun devis</td></tr>
                 ) : filteredQuotes.map((q) => {
                   const totals = castJson<InvoiceTotals>(q.totals)
                   return (
@@ -111,7 +111,7 @@ export default function AllQuotesPage() {
                       <td className="p-3"><Badge variant={statusVariant(q.status || "draft")}>{q.status}</Badge></td>
                       <td className="p-3 text-right">{formatTND(totals.total_incl_tax || 0)}</td>
                       <td className="p-3 text-right">
-                        <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>View</Button>
+                        <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>Voir</Button>
                       </td>
                     </tr>
                   )

@@ -59,7 +59,7 @@ export function DataTable<TData, TValue>({ columns, data, filterColumn, filterPl
       <div className="flex items-center gap-2">
         {filterColumn && (
           <Input
-            placeholder={filterPlaceholder ?? "Filter..."}
+            placeholder={filterPlaceholder ?? "Filtrer..."}
             value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
             onChange={(e) => table.getColumn(filterColumn)?.setFilterValue(e.target.value)}
             className="max-w-sm"
@@ -67,7 +67,7 @@ export function DataTable<TData, TValue>({ columns, data, filterColumn, filterPl
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">Columns</Button>
+            <Button variant="outline" className="ml-auto">Colonnes</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {table.getAllColumns().filter((c) => c.getCanHide()).map((column) => (
@@ -129,7 +129,7 @@ export function DataTable<TData, TValue>({ columns, data, filterColumn, filterPl
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows per page</span>
+          <span className="text-sm text-muted-foreground">Lignes par page</span>
           <select
             className="h-9 rounded-md border bg-background px-2 text-sm"
             value={table.getState().pagination.pageSize}

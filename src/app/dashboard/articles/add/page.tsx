@@ -39,10 +39,10 @@ export default function AddArticlePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.code || !form.designation) { alert("Code and designation required"); return }
-    if (form.type === "product" && !form.unit) { alert("Unit required for products"); return }
-    if (form.consignment_enabled && packaging.length === 0) { alert("At least one packaging line required"); return }
-    if (!selectedOrgId || selectedOrgId === "all") { alert("Please select a PME"); return }
+    if (!form.code || !form.designation) { alert("Code et désignation requis"); return }
+    if (form.type === "product" && !form.unit) { alert("Unité requise pour les produits"); return }
+    if (form.consignment_enabled && packaging.length === 0) { alert("Au moins une ligne d'emballage est requise"); return }
+    if (!selectedOrgId || selectedOrgId === "all") { alert("Veuillez sélectionner une organisation"); return }
 
     setLoading(true)
     try {
@@ -65,7 +65,7 @@ export default function AddArticlePage() {
       router.push("/dashboard/articles")
     } catch (err) {
       console.error(err)
-      alert("Failed to create article")
+      alert("Échec de la création de l'article")
     } finally {
       setLoading(false)
     }
@@ -73,11 +73,11 @@ export default function AddArticlePage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Add Article</h1>
-      <div className="text-sm text-muted-foreground">PME: {selectedOrgName || "Select a PME first"}</div>
+      <h1 className="text-2xl font-bold">Ajouter un article</h1>
+      <div className="text-sm text-muted-foreground">Organisation : {selectedOrgName || "Sélectionnez d'abord une organisation"}</div>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Basic Info</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Informations générales</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
               <Label>Type *</Label>
@@ -91,20 +91,20 @@ export default function AddArticlePage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>Code *</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required /></div>
-              <div className="grid gap-2"><Label>Designation *</Label><Input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} required /></div>
+              <div className="grid gap-2"><Label>Désignation *</Label><Input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} required /></div>
             </div>
             {form.type === "product" && (
-              <div className="grid gap-2"><Label>Unit *</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required /></div>
+              <div className="grid gap-2"><Label>Unité *</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required /></div>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Pricing</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Tarification</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>PUHT</Label><Input type="number" step="0.01" value={form.unit_price_puht} onChange={(e) => setForm({ ...form, unit_price_puht: Number(e.target.value) })} /></div>
-              <div className="grid gap-2"><Label>Transfer Price</Label><Input type="number" step="0.01" value={form.transfer_price} onChange={(e) => setForm({ ...form, transfer_price: Number(e.target.value) })} /></div>
+              <div className="grid gap-2"><Label>Prix de transfert</Label><Input type="number" step="0.01" value={form.transfer_price} onChange={(e) => setForm({ ...form, transfer_price: Number(e.target.value) })} /></div>
             </div>
           </CardContent>
         </Card>
@@ -121,15 +121,15 @@ export default function AddArticlePage() {
             <CardHeader><CardTitle>Stock</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2"><Label>On Hand</Label><Input type="number" value={form.stock_onHand} onChange={(e) => setForm({ ...form, stock_onHand: Number(e.target.value) })} /></div>
-                <div className="grid gap-2"><Label>Min Stock</Label><Input type="number" value={form.stock_minStock} onChange={(e) => setForm({ ...form, stock_minStock: Number(e.target.value) })} /></div>
+                <div className="grid gap-2"><Label>En stock</Label><Input type="number" value={form.stock_onHand} onChange={(e) => setForm({ ...form, stock_onHand: Number(e.target.value) })} /></div>
+                <div className="grid gap-2"><Label>Stock min</Label><Input type="number" value={form.stock_minStock} onChange={(e) => setForm({ ...form, stock_minStock: Number(e.target.value) })} /></div>
               </div>
               {form.stock_onHand < form.stock_minStock && form.stock_minStock > 0 && (
-                <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">Low stock warning: on hand is below minimum</div>
+                <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">Alerte stock bas : la quantité en stock est inférieure au minimum</div>
               )}
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="consignment" checked={form.consignment_enabled} onChange={(e) => setForm({ ...form, consignment_enabled: e.target.checked })} />
-                <Label htmlFor="consignment">Enable Consignment</Label>
+                <Label htmlFor="consignment">Activer la consignation</Label>
               </div>
             </CardContent>
           </Card>
@@ -137,24 +137,24 @@ export default function AddArticlePage() {
 
         {form.type === "product" && form.consignment_enabled && (
           <Card>
-            <CardHeader><CardTitle>Packaging</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Emballage</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {packaging.map((pkg, i) => (
                 <div key={i} className="flex gap-4 items-end">
                   <div className="grid gap-2"><Label>Type</Label><Input value={pkg.type} onChange={(e) => { const p = [...packaging]; p[i].type = e.target.value; setPackaging(p) }} placeholder="BOUTEILLE/PALETTE/CASIER" /></div>
-                  <div className="grid gap-2"><Label>Units/Art</Label><Input type="number" value={pkg.unitsPerArticle} onChange={(e) => { const p = [...packaging]; p[i].unitsPerArticle = Number(e.target.value); setPackaging(p) }} /></div>
-                  <div className="grid gap-2"><Label>Deposit</Label><Input type="number" step="0.01" value={pkg.depositValue} onChange={(e) => { const p = [...packaging]; p[i].depositValue = Number(e.target.value); setPackaging(p) }} /></div>
-                  <Button type="button" variant="destructive" size="sm" onClick={() => removePackaging(i)}>Remove</Button>
+                  <div className="grid gap-2"><Label>Unités/Art</Label><Input type="number" value={pkg.unitsPerArticle} onChange={(e) => { const p = [...packaging]; p[i].unitsPerArticle = Number(e.target.value); setPackaging(p) }} /></div>
+                  <div className="grid gap-2"><Label>Consigne</Label><Input type="number" step="0.01" value={pkg.depositValue} onChange={(e) => { const p = [...packaging]; p[i].depositValue = Number(e.target.value); setPackaging(p) }} /></div>
+                  <Button type="button" variant="destructive" size="sm" onClick={() => removePackaging(i)}>Supprimer</Button>
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={addPackaging}>Add packaging line</Button>
+              <Button type="button" variant="outline" onClick={addPackaging}>Ajouter un emballage</Button>
             </CardContent>
           </Card>
         )}
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Article"}</Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer l'article"}</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button>
         </div>
       </form>
     </div>

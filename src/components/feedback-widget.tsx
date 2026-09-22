@@ -49,7 +49,7 @@ export function FeedbackWidget() {
     const selected = Array.from(e.target.files || [])
     const valid = selected.filter((f) => f.size <= MAX_FILE_SIZE)
     if (valid.length < selected.length) {
-      alert("Some files exceeded the 10MB limit and were removed.")
+      alert("Certains fichiers dépassaient la limite de 10 Mo et ont été retirés.")
     }
     setFiles((prev) => [...prev, ...valid])
     if (fileInputRef.current) fileInputRef.current.value = ""
@@ -62,7 +62,7 @@ export function FeedbackWidget() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!description.trim()) {
-      alert("Please describe your feedback.")
+      alert("Veuillez décrire votre retour.")
       return
     }
 
@@ -97,7 +97,7 @@ export function FeedbackWidget() {
         setFiles([])
       }, 1500)
     } catch (err) {
-      alert("Failed to submit feedback. Please try again.")
+      alert("Échec de l'envoi du retour. Veuillez réessayer.")
       console.error(err)
     } finally {
       setLoading(false)
@@ -123,7 +123,7 @@ export function FeedbackWidget() {
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b px-4 py-3">
-            <h3 className="text-sm font-semibold">Send Feedback</h3>
+            <h3 className="text-sm font-semibold">Envoyer un retour</h3>
             <Button
               variant="ghost"
               size="icon"
@@ -137,7 +137,7 @@ export function FeedbackWidget() {
           {submitted ? (
             <div className="flex flex-col items-center gap-2 px-4 py-10">
               <CheckCircle2 className="size-10 text-emerald-500" />
-              <p className="text-sm font-medium">Thank you for your feedback!</p>
+              <p className="text-sm font-medium">Merci pour votre retour !</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 p-4">
@@ -173,7 +173,7 @@ export function FeedbackWidget() {
                     "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
                     "outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   )}
-                  placeholder="Describe the issue, feature, or improvement..."
+                  placeholder="Décrivez le problème, la fonctionnalité ou l'amélioration..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
@@ -182,7 +182,7 @@ export function FeedbackWidget() {
               {/* File attachments */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Attachments</Label>
+                  <Label>Pièces jointes</Label>
                   <Button
                     type="button"
                     variant="ghost"

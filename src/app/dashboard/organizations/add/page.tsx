@@ -30,7 +30,7 @@ export default function AddOrganizationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name) { alert("Name is required"); return }
+    if (!form.name) { alert("Le nom est requis"); return }
     setLoading(true)
     try {
       const org = await createOrganization({
@@ -57,38 +57,38 @@ export default function AddOrganizationPage() {
       addContact(createdContact)
       await logAction(`Created organization ${org.name}`, org.id)
       router.push("/dashboard/contacts")
-    } catch { alert("Failed to create PME") } finally { setLoading(false) }
+    } catch { alert("Échec de la création de l'organisation") } finally { setLoading(false) }
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Add PME</h1>
+      <h1 className="text-2xl font-bold">Ajouter une organisation</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card><CardHeader><CardTitle>Basic Info</CardTitle></CardHeader><CardContent className="space-y-4">
-          <div className="grid gap-2"><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+        <Card><CardHeader><CardTitle>Informations générales</CardTitle></CardHeader><CardContent className="space-y-4">
+          <div className="grid gap-2"><Label>Nom *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2"><Label>MF</Label><Input value={form.mf} onChange={(e) => setForm({ ...form, mf: e.target.value })} /></div>
-            <div className="grid gap-2"><Label>Unique ID</Label><Input value={form.unique_id} onChange={(e) => setForm({ ...form, unique_id: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Identifiant unique</Label><Input value={form.unique_id} onChange={(e) => setForm({ ...form, unique_id: e.target.value })} /></div>
           </div>
         </CardContent></Card>
-        <Card><CardHeader><CardTitle>Address</CardTitle></CardHeader><CardContent className="space-y-4">
-          <div className="grid gap-2"><Label>Address</Label><Input value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} /></div>
+        <Card><CardHeader><CardTitle>Adresse</CardTitle></CardHeader><CardContent className="space-y-4">
+          <div className="grid gap-2"><Label>Adresse</Label><Input value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} /></div>
           <div className="grid grid-cols-3 gap-4">
-            <div className="grid gap-2"><Label>City</Label><Input value={form.address_city} onChange={(e) => setForm({ ...form, address_city: e.target.value })} /></div>
-            <div className="grid gap-2"><Label>Zip</Label><Input value={form.address_zipCode} onChange={(e) => setForm({ ...form, address_zipCode: e.target.value })} /></div>
-            <div className="grid gap-2"><Label>Country</Label><Input value={form.address_country} onChange={(e) => setForm({ ...form, address_country: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Ville</Label><Input value={form.address_city} onChange={(e) => setForm({ ...form, address_city: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>CP</Label><Input value={form.address_zipCode} onChange={(e) => setForm({ ...form, address_zipCode: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Pays</Label><Input value={form.address_country} onChange={(e) => setForm({ ...form, address_country: e.target.value })} /></div>
           </div>
         </CardContent></Card>
         <Card><CardHeader><CardTitle>Contact</CardTitle></CardHeader><CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Téléphone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             <div className="grid gap-2"><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
           </div>
           <div className="grid gap-2"><Label>Conditions de Vente</Label><Input value={form.conditions_de_vente} onChange={(e) => setForm({ ...form, conditions_de_vente: e.target.value })} /></div>
         </CardContent></Card>
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save PME"}</Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer l'organisation"}</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button>
         </div>
       </form>
     </div>

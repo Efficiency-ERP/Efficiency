@@ -40,7 +40,7 @@ export function TeamSwitcher() {
   }
 
   const items: OrganizationItem[] = React.useMemo(() => {
-    const base: OrganizationItem[] = [{ id: "all", name: "All PMEs", icon: Eye, type: "view" }]
+    const base: OrganizationItem[] = [{ id: "all", name: "Toutes les organisations", icon: Eye, type: "view" }]
     const orgs = organizations.map((o) => ({ id: o.id, name: o.name, icon: Building2, type: "organization" as const }))
     return [...base, ...orgs]
   }, [organizations])
@@ -65,7 +65,7 @@ export function TeamSwitcher() {
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{activeOrganization.name}</span>
-                <span className="truncate text-xs">{activeOrganization.type === "view" ? "Overview" : "PME Unit"}</span>
+                <span className="truncate text-xs">{activeOrganization.type === "view" ? "Vue d'ensemble" : "Organisation"}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
@@ -77,7 +77,7 @@ export function TeamSwitcher() {
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-muted-foreground text-xs">
-              PME Selector
+              Sélecteur d'organisation
             </DropdownMenuLabel>
             {items.map((organization, index) => (
               <DropdownMenuItem
@@ -97,7 +97,7 @@ export function TeamSwitcher() {
               <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                 <Plus className="size-4" />
               </div>
-              <div className="text-muted-foreground font-medium">Add PME</div>
+              <div className="text-muted-foreground font-medium">Ajouter une organisation</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -49,7 +49,7 @@ export default function ListContactsPage() {
   const columns: ColumnDef<Contact>[] = [
     {
       accessorKey: "company_name",
-      header: "Company Name",
+      header: "Raison sociale",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <button
@@ -68,11 +68,11 @@ export default function ListContactsPage() {
     },
     {
       accessorKey: "unique_id",
-      header: "Unique ID",
+      header: "Identifiant unique",
     },
     {
       id: "phone",
-      header: "Phone",
+      header: "Téléphone",
       cell: ({ row }) => (row.original.contact as { phone?: string })?.phone || "-",
     },
     {
@@ -82,7 +82,7 @@ export default function ListContactsPage() {
     },
     {
       accessorKey: "address",
-      header: "City",
+      header: "Ville",
       cell: ({ row }) => (row.original.address as { city?: string })?.city || "-",
     },
     {
@@ -97,31 +97,31 @@ export default function ListContactsPage() {
   ]
 
   if (loading) {
-    return <div className="text-muted-foreground">Loading contacts...</div>
+    return <div className="text-muted-foreground">Chargement des contacts...</div>
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Contacts</h1>
-        <Button onClick={() => router.push("/dashboard/contacts/add")}>Add Contact</Button>
+        <Button onClick={() => router.push("/dashboard/contacts/add")}>Ajouter un contact</Button>
       </div>
       <div className="flex gap-4">
         <Input
-          placeholder="Search by name, MF, or ID..."
+          placeholder="Rechercher par nom, MF ou identifiant..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Types" />
+            <SelectValue placeholder="Tous les types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="customer">Customer</SelectItem>
-            <SelectItem value="supplier">Supplier</SelectItem>
-            <SelectItem value="both">Both</SelectItem>
+            <SelectItem value="all">Tous les types</SelectItem>
+            <SelectItem value="customer">Client</SelectItem>
+            <SelectItem value="supplier">Fournisseur</SelectItem>
+            <SelectItem value="both">Les deux</SelectItem>
             {customTypes.map((t) => (
               <SelectItem key={t} value={t}>{t}</SelectItem>
             ))}

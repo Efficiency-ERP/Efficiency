@@ -53,24 +53,24 @@ export default function OrdersListPage() {
     <div className="space-y-4">
       <SectionTabs tabs={PURCHASING_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Orders</h1>
-        <Button onClick={() => router.push("/dashboard/orders/create?type=supplier")}>Create Order</Button>
+        <h1 className="text-2xl font-bold">Commandes</h1>
+        <Button onClick={() => router.push("/dashboard/orders/create?type=supplier")}>Créer une commande</Button>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Loading orders...</div>
+        <div className="text-muted-foreground">Chargement des commandes...</div>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-1 md:max-w-xs">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{orders.length}</CardContent></Card>
           </div>
           <div className="flex gap-4">
-            <Input placeholder="Search by number..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <Input placeholder="Rechercher par numéro..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Tous les types" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="supplier">Supplier</SelectItem>
-                <SelectItem value="customer">Customer</SelectItem>
+                <SelectItem value="all">Tous les types</SelectItem>
+                <SelectItem value="supplier">Fournisseur</SelectItem>
+                <SelectItem value="customer">Client</SelectItem>
                 <SelectItem value="interco">Interco</SelectItem>
               </SelectContent>
             </Select>
@@ -79,17 +79,17 @@ export default function OrdersListPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3">Number</th>
+                  <th className="text-left p-3">Numéro</th>
                   <th className="text-left p-3">Date</th>
-                  <th className="text-left p-3">Counterparty</th>
+                  <th className="text-left p-3">Tiers</th>
                   <th className="text-left p-3">Type</th>
-                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Statut</th>
                   <th className="text-right p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredOrders.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center p-8 text-muted-foreground">No orders found</td></tr>
+                  <tr><td colSpan={6} className="text-center p-8 text-muted-foreground">Aucune commande</td></tr>
                 ) : filteredOrders.map((o) => (
                   <tr key={o.id} className="border-b hover:bg-muted/30">
                     <td className="p-3">
@@ -102,7 +102,7 @@ export default function OrdersListPage() {
                     <td className="p-3"><Badge variant="outline">{o.subtype}</Badge></td>
                     <td className="p-3"><Badge variant={o.status === "final" ? "default" : "outline"}>{o.status}</Badge></td>
                     <td className="p-3 text-right">
-                      <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/orders/${o.id}`)}>View</Button>
+                      <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/orders/${o.id}`)}>Voir</Button>
                     </td>
                   </tr>
                 ))}

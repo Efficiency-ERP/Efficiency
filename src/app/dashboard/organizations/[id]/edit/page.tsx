@@ -93,11 +93,11 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
     }
   }, [logoPath])
 
-  if (loading) return <div className="text-muted-foreground">Loading...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement...</div>
   if (!organization) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
       <h2 className="text-xl font-bold">Organisation introuvable</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/organizations")}>Back to PME</Button>
+      <Button variant="outline" onClick={() => router.push("/dashboard/organizations")}>Retour aux organisations</Button>
     </div>
   )
 
@@ -142,7 +142,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name) {
-      alert("Name is required")
+      alert("Le nom est requis")
       return
     }
     setSaving(true)
@@ -179,7 +179,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
       router.push("/dashboard/organizations")
     } catch (err) {
       console.error(err)
-      alert("Failed to update organization")
+      alert("Échec de la mise à jour de l'organisation")
     } finally {
       setSaving(false)
     }
@@ -187,18 +187,18 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Edit PME</h1>
+      <h1 className="text-2xl font-bold">Modifier l&apos;organisation</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Basic Info</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Informations générales</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>Name *</Label>
+              <Label>Nom *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>MF</Label><Input value={form.mf} onChange={(e) => setForm({ ...form, mf: e.target.value })} /></div>
-              <div className="grid gap-2"><Label>Unique ID</Label><Input value={form.unique_id} onChange={(e) => setForm({ ...form, unique_id: e.target.value })} /></div>
+              <div className="grid gap-2"><Label>Identifiant unique</Label><Input value={form.unique_id} onChange={(e) => setForm({ ...form, unique_id: e.target.value })} /></div>
             </div>
             <div className="grid gap-2">
               <Label>Timbre fiscal (TND)</Label>
@@ -251,13 +251,13 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Address</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Adresse</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-2"><Label>Address</Label><Input value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Adresse</Label><Input value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} /></div>
             <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2"><Label>City</Label><Input value={form.address_city} onChange={(e) => setForm({ ...form, address_city: e.target.value })} /></div>
-              <div className="grid gap-2"><Label>Zip</Label><Input value={form.address_zipCode} onChange={(e) => setForm({ ...form, address_zipCode: e.target.value })} /></div>
-              <div className="grid gap-2"><Label>Country</Label><Input value={form.address_country} onChange={(e) => setForm({ ...form, address_country: e.target.value })} /></div>
+              <div className="grid gap-2"><Label>Ville</Label><Input value={form.address_city} onChange={(e) => setForm({ ...form, address_city: e.target.value })} /></div>
+              <div className="grid gap-2"><Label>CP</Label><Input value={form.address_zipCode} onChange={(e) => setForm({ ...form, address_zipCode: e.target.value })} /></div>
+              <div className="grid gap-2"><Label>Pays</Label><Input value={form.address_country} onChange={(e) => setForm({ ...form, address_country: e.target.value })} /></div>
             </div>
           </CardContent>
         </Card>
@@ -266,7 +266,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
           <CardHeader><CardTitle>Contact</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              <div className="grid gap-2"><Label>Téléphone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               <div className="grid gap-2"><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
             </div>
             <div className="grid gap-2"><Label>Conditions de Vente</Label><Input value={form.conditions_de_vente} onChange={(e) => setForm({ ...form, conditions_de_vente: e.target.value })} /></div>
@@ -291,8 +291,8 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
         </Card>
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="submit" disabled={saving}>{saving ? "Enregistrement..." : "Enregistrer les modifications"}</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button>
         </div>
       </form>
     </div>

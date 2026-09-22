@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge"
 
 export function OrganizationBadge() {
-  return <Badge variant="secondary" className="ml-1">My PME</Badge>
+  return <Badge variant="secondary" className="ml-1">Mon organisation</Badge>
 }
 
 export function organizationItemClassName(isMine: boolean) {

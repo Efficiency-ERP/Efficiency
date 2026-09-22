@@ -59,7 +59,7 @@ export function NavUser() {
               <AvatarFallback className="rounded-lg">...</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">Loading...</span>
+              <span className="truncate font-medium">Chargement...</span>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>

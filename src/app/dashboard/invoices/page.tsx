@@ -50,35 +50,35 @@ export default function AllInvoicesPage() {
   const moneyIn = invoices.filter((i) => i.direction === "in").reduce((s, i) => s + correctionSign((i.subtype as InvoiceType) || "standard") * ((castJson<InvoiceTotals>(i.totals)).total_incl_tax || 0), 0)
   const moneyOut = invoices.filter((i) => i.direction === "out").reduce((s, i) => s + correctionSign((i.subtype as InvoiceType) || "standard") * ((castJson<InvoiceTotals>(i.totals)).total_incl_tax || 0), 0)
 
-  if (loading) return <div className="text-muted-foreground">Loading invoices...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement des factures...</div>
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Invoices</h1>
+        <h1 className="text-2xl font-bold">Factures</h1>
         <div className="flex gap-2">
-          <Button onClick={() => router.push("/dashboard/invoices/create")}>Create Invoice</Button>
+          <Button onClick={() => router.push("/dashboard/invoices/create")}>Créer une facture</Button>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{totalCount}</CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Money In</CardTitle></CardHeader><CardContent className="text-2xl font-semibold text-emerald-600">{formatTND(moneyIn)}</CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Money Out</CardTitle></CardHeader><CardContent className="text-2xl font-semibold text-red-600">{formatTND(moneyOut)}</CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Encaissements</CardTitle></CardHeader><CardContent className="text-2xl font-semibold text-emerald-600">{formatTND(moneyIn)}</CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Décaissements</CardTitle></CardHeader><CardContent className="text-2xl font-semibold text-red-600">{formatTND(moneyOut)}</CardContent></Card>
       </div>
       <div className="flex gap-4">
         <Input
-          placeholder="Search by number..."
+          placeholder="Rechercher par numéro..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Types" /></SelectTrigger>
+          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Tous les types" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="all">Tous les types</SelectItem>
             <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="credit">Credit</SelectItem>
-            <SelectItem value="debit">Debit</SelectItem>
+            <SelectItem value="credit">Avoir</SelectItem>
+            <SelectItem value="debit">Débit</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -86,16 +86,16 @@ export default function AllInvoicesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left p-3">Number</th>
+              <th className="text-left p-3">Numéro</th>
               <th className="text-left p-3">Date</th>
               <th className="text-left p-3">Type</th>
-              <th className="text-right p-3">Cash Flow</th>
+              <th className="text-right p-3">Trésorerie</th>
               <th className="text-right p-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredInvoices.length === 0 ? (
-              <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">No invoices found</td></tr>
+              <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Aucune facture</td></tr>
             ) : filteredInvoices.map((inv) => {
               const flow = netCashFlow(inv)
               return (
@@ -111,7 +111,7 @@ export default function AllInvoicesPage() {
                     {flow >= 0 ? "+" : ""}{formatTND(flow)}
                   </td>
                   <td className="p-3 text-right">
-                    <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>View</Button>
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>Voir</Button>
                   </td>
                 </tr>
               )

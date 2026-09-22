@@ -18,5 +18,5 @@ export default function CreateInvoiceRedirectPage() {
     router.replace(`/dashboard/invoices/create/standard${qs ? `?${qs}` : ""}`)
   }, [router, searchParams])
 
-  return <div className="text-muted-foreground">Redirecting...</div>
+  return <div className="text-muted-foreground">Redirection...</div>
 }

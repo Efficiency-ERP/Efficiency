@@ -82,10 +82,10 @@ export function DocumentChargesEditor({
               <Input type="number" step="0.001" value={charge.amount ?? 0} onChange={(e) => update(i, { amount: Number(e.target.value) })} />
             </div>
           )}
-          <Button type="button" variant="destructive" size="sm" onClick={() => remove(i)}>Remove</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={() => remove(i)}>Supprimer</Button>
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" onClick={add}>Add charge</Button>
+      <Button type="button" variant="outline" size="sm" onClick={add}>Ajouter une charge</Button>
     </div>
   )
 }

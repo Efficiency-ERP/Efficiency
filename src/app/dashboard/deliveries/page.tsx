@@ -50,31 +50,31 @@ export default function DeliveriesListPage() {
     <div className="space-y-4">
       <SectionTabs tabs={SALES_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Deliveries</h1>
-        <Button onClick={() => router.push("/dashboard/deliveries/create")}>Create Delivery</Button>
+        <h1 className="text-2xl font-bold">Bons de livraison</h1>
+        <Button onClick={() => router.push("/dashboard/deliveries/create")}>Créer un bon de livraison</Button>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Loading deliveries...</div>
+        <div className="text-muted-foreground">Chargement des bons de livraison...</div>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-1 md:max-w-xs">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{deliveries.length}</CardContent></Card>
           </div>
-          <Input placeholder="Search by number..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+          <Input placeholder="Rechercher par numéro..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3">Number</th>
+                  <th className="text-left p-3">Numéro</th>
                   <th className="text-left p-3">Date</th>
-                  <th className="text-left p-3">Counterparty</th>
-                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Tiers</th>
+                  <th className="text-left p-3">Statut</th>
                   <th className="text-right p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredDeliveries.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">No deliveries found</td></tr>
+                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Aucun bon de livraison</td></tr>
                 ) : filteredDeliveries.map((d) => (
                   <tr key={d.id} className="border-b hover:bg-muted/30">
                     <td className="p-3">
@@ -86,7 +86,7 @@ export default function DeliveriesListPage() {
                     <td className="p-3">{contactById.get(d.counterparty_id)?.company_name || "N/A"}</td>
                     <td className="p-3"><Badge variant={d.status === "final" ? "default" : "outline"}>{d.status}</Badge></td>
                     <td className="p-3 text-right">
-                      <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/deliveries/${d.id}`)}>View</Button>
+                      <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/deliveries/${d.id}`)}>Voir</Button>
                     </td>
                   </tr>
                 ))}

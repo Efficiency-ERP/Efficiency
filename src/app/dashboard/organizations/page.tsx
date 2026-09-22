@@ -11,8 +11,8 @@ export default function OrganizationsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">PME (Organizations)</h1>
-        <Button onClick={() => router.push("/dashboard/organizations/add")}>Add PME</Button>
+        <h1 className="text-2xl font-bold">Organisations</h1>
+        <Button onClick={() => router.push("/dashboard/organizations/add")}>Ajouter une organisation</Button>
       </div>
       <div className="grid gap-4">
         {organizations.map((org) => (

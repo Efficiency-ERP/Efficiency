@@ -35,7 +35,7 @@ export function TaxChargesEditor({ charges, onChange }: { charges: TaxCharge[]; 
       {charges.map((charge, i) => (
         <div key={charge.id} className="flex gap-2 items-end">
           <div className="grid gap-1 flex-1">
-            <Label className="text-xs">Label</Label>
+            <Label className="text-xs">Libellé</Label>
             <Input value={charge.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="TVA, DC, FODEC..." />
           </div>
           <div className="grid gap-1 w-24">
@@ -53,10 +53,10 @@ export function TaxChargesEditor({ charges, onChange }: { charges: TaxCharge[]; 
               </SelectContent>
             </Select>
           </div>
-          <Button type="button" variant="destructive" size="sm" onClick={() => remove(i)}>Remove</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={() => remove(i)}>Supprimer</Button>
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" onClick={add}>Add tax</Button>
+      <Button type="button" variant="outline" size="sm" onClick={add}>Ajouter une taxe</Button>
     </div>
   )
 }

@@ -22,7 +22,7 @@ export function ThemeToggle() {
       size="icon"
       onClick={toggleTheme}
       className="h-9 w-9"
-      aria-label="Toggle theme"
+      aria-label="Changer de thème"
     >
       {/* Render icons only after mount so SSR markup matches the resolved theme */}
       {mounted && (
@@ -31,7 +31,7 @@ export function ThemeToggle() {
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
         </>
       )}
-      <span className="sr-only">Toggle theme</span>
+      <span className="sr-only">Changer de thème</span>
     </Button>
   )
 }
