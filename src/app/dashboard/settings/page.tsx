@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useUser } from "@/contexts/user-context"
 import { useActionLog } from "@/hooks/use-action-log"
 import { useNavigation } from "@/contexts/navigation-context"
@@ -90,15 +91,23 @@ export default function SettingsPage() {
       </Card>
       <Card>
         <CardHeader><CardTitle>My Organizations</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Identité imprimée sur vos documents : logo, matricule fiscal, adresse et coordonnées bancaires.
+          </p>
           {organizations.length === 0 ? (
             <p className="text-sm text-muted-foreground">No organizations assigned. Contact an admin.</p>
           ) : (
             <ul className="space-y-2">
               {organizations.map((org) => (
-                <li key={org.id} className="flex items-center justify-between text-sm">
+                <li key={org.id} className="flex items-center justify-between gap-2 text-sm">
                   <span>{org.name}</span>
-                  <Badge variant="secondary">{org.id.slice(0, 8)}...</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{org.id.slice(0, 8)}...</Badge>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/pme/${org.id}/edit`}>Edit</Link>
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

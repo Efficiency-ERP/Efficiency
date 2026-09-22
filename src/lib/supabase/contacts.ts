@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/client"
 import type { Contact, Organization } from "@/types/database"
 
-// Logo and bank details are set later on the edit screen, not at creation.
-type NewOrganization = Omit<Organization, "id" | "tenant_id" | "created_at" | "logo_path" | "bank_details">
+// Logo, bank details and the stamp amount are set later on the edit screen,
+// not at creation.
+type NewOrganization = Omit<Organization, "id" | "tenant_id" | "created_at" | "logo_path" | "bank_details" | "stamp_duty">
 
 export async function getContacts(organizationId?: string): Promise<Contact[]> {
   const supabase = createClient()

@@ -41,6 +41,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
     phone: "",
     fax: "",
     conditions_de_vente: "",
+    stamp_duty: "",
     bank_name: "",
     rib: "",
     iban: "",
@@ -63,6 +64,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
       phone: contactInfo?.phone || "",
       fax: contactInfo?.fax || "",
       conditions_de_vente: organization.conditions_de_vente || "",
+      stamp_duty: organization.stamp_duty === null ? "" : String(organization.stamp_duty),
       bank_name: bank.bank_name || "",
       rib: bank.rib || "",
       iban: bank.iban || "",
@@ -167,6 +169,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
         },
         contact: { phone: form.phone, fax: form.fax || null },
         conditions_de_vente: form.conditions_de_vente || null,
+        stamp_duty: form.stamp_duty === "" ? null : Number(form.stamp_duty),
         bank_details: hasBankDetails ? bankDetails : null,
       }
 
@@ -196,6 +199,20 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>MF</Label><Input value={form.mf} onChange={(e) => setForm({ ...form, mf: e.target.value })} /></div>
               <div className="grid gap-2"><Label>Unique ID</Label><Input value={form.unique_id} onChange={(e) => setForm({ ...form, unique_id: e.target.value })} /></div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Timbre fiscal (TND)</Label>
+              <Input
+                type="number"
+                step="0.001"
+                value={form.stamp_duty}
+                onChange={(e) => setForm({ ...form, stamp_duty: e.target.value })}
+                className="max-w-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Prérempli sur les nouvelles factures que cette organisation émet. Le montant légal change
+                avec chaque loi de finances — corrigez-le ici, il n&apos;est codé nulle part.
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -28,6 +28,22 @@ export interface TaxCharge {
   base: TaxBase
 }
 
+// Line charges are per-line and percentage-only. A charge that applies once to
+// the whole document — Tunisia's timbre fiscal above all — is neither, so it
+// gets its own shape. The base deliberately isn't TaxBase: "transfer" and
+// "cumulative" are per-line concepts with no document-level meaning. A negative
+// rate is legal and is how a retenue a la source is expressed.
+export type DocumentChargeBase = "ht" | "ttc"
+
+export interface DocumentCharge {
+  id: string
+  label: string
+  kind: "percent" | "fixed"
+  rate?: number
+  amount?: number
+  base?: DocumentChargeBase
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -59,6 +75,7 @@ export interface Database {
           conditions_de_vente: string | null
           logo_path: string | null
           bank_details: Json | null
+          stamp_duty: number | null
           created_at: string
         }
         Insert: {
@@ -72,6 +89,7 @@ export interface Database {
           conditions_de_vente?: string | null
           logo_path?: string | null
           bank_details?: Json | null
+          stamp_duty?: number | null
           created_at?: string
         }
         Update: {
@@ -85,6 +103,7 @@ export interface Database {
           conditions_de_vente?: string | null
           logo_path?: string | null
           bank_details?: Json | null
+          stamp_duty?: number | null
         }
       }
       contacts: {
@@ -191,6 +210,7 @@ export interface Database {
           direction: InvoiceDirection | null
           status: string | null
           totals: Json
+          charges: Json
           notes: string | null
           source_document_id: string | null
           attributes: Json
@@ -209,6 +229,7 @@ export interface Database {
           direction?: InvoiceDirection | null
           status?: string | null
           totals?: Json
+          charges?: Json
           notes?: string | null
           source_document_id?: string | null
           attributes?: Json
@@ -227,6 +248,7 @@ export interface Database {
           direction?: InvoiceDirection | null
           status?: string | null
           totals?: Json
+          charges?: Json
           notes?: string | null
           source_document_id?: string | null
           attributes?: Json

@@ -17,7 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
 import { PAYMENT_METHODS, castJson } from "@/lib/utils"
 import { TaxChargesEditor, defaultTaxCharges, cloneTaxCharges, formatTaxCharges } from "@/components/tax-charges-editor"
-import type { Json, PaymentMethod, TaxCharge, InvoiceDirection } from "@/types/database"
+import { DocumentChargesEditor, stampCharge } from "@/components/document-charges-editor"
+import type { DocumentCharge, Json, PaymentMethod, TaxCharge, InvoiceDirection } from "@/types/database"
 
 export default function CreateInvoiceFormPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
@@ -52,6 +53,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const [originalInvoiceId, setOriginalInvoiceId] = useState("")
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number; unit_price_excl_tax: number; transfer_price: number; tax_charges: TaxCharge[]; article_id: string | null; consignments: ConsignmentCharge[] }>>([])
+  const [documentCharges, setDocumentCharges] = useState<DocumentCharge[]>([])
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [prefilling, setPrefilling] = useState(isInferredFlow)
@@ -69,6 +71,17 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
     if (isInferredFlow || organizationId) return
     if (organizations.length === 1) setOrganizationId(organizations[0].id)
   }, [organizations, organizationId, isInferredFlow])
+
+  // Seed the issuing org's timbre fiscal. Only on an invoice we issue
+  // ourselves: a supplier's invoice carries their stamp, and an avoir doesn't
+  // re-charge it. Seeding only while the list is still empty is what stops an
+  // organization switch from clobbering charges the user has already edited.
+  useEffect(() => {
+    if (isMoneyOut || invoiceType !== "standard") return
+    const stampDuty = organizations.find((o) => o.id === organizationId)?.stamp_duty
+    if (!stampDuty) return
+    setDocumentCharges((current) => (current.length === 0 ? [stampCharge(stampDuty)] : current))
+  }, [organizationId, organizations, isMoneyOut, invoiceType])
 
   useEffect(() => {
     async function prefillFromOriginalInvoice() {
@@ -270,6 +283,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
           source_delivery_id: null,
           original_invoice_id: isAdjustment ? (originalInvoiceId || null) : null,
           notes: notes || null,
+          charges: documentCharges,
         },
         invoiceLines
       )
@@ -294,7 +308,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   )
   const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
 
-  const totals = computeInvoiceTotals(lines)
+  const totals = computeInvoiceTotals(lines, documentCharges)
 
   if (prefilling) return <div className="text-muted-foreground">Loading source document...</div>
 
@@ -511,6 +525,16 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardHeader><CardTitle>Charges de la facture</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Appliquées une seule fois à la facture entière, pas par ligne — le timbre fiscal notamment.
+            </p>
+            <DocumentChargesEditor charges={documentCharges} onChange={setDocumentCharges} />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
