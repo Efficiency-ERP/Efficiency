@@ -26,7 +26,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
   const searchParams = useSearchParams()
   const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
-  const { articles } = useArticlesStore()
+  const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
   const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("invoices")
 
@@ -267,7 +267,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
       // A money-out invoice records what the supplier issued to us — their
       // number, not ours to generate.
       const number = isMoneyOut ? manualNumber.trim() : await getNextDocumentNumber(organizationId, numberPrefix)
-      const invoice = await createInvoice(
+      const { invoice, updatedArticles } = await createInvoice(
         {
           number,
           date,
@@ -287,6 +287,7 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
         },
         invoiceLines
       )
+      for (const article of updatedArticles) updateArticleInStore(article.id, article)
       if (sourceOrderId) await markOrderFinal(sourceOrderId)
       if (sourceQuoteId) await markQuoteAccepted(sourceQuoteId)
       await logAction(`Created ${invoiceType} invoice ${invoice.number}`, invoice.id, organizationId)

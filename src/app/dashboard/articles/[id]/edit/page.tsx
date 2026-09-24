@@ -4,6 +4,7 @@ import { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { updateArticle } from "@/lib/supabase/articles"
+import { adjustArticleStock } from "@/lib/supabase/stock"
 import { useActionLog } from "@/hooks/use-action-log"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,6 +34,10 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
     stock_minStock: 0,
     consignment_enabled: false,
   })
+  // The balance as it stood when the form loaded. Saving sends the change from
+  // here, not the final figure, so a document that moved stock while the form
+  // was open is kept rather than overwritten.
+  const [loadedOnHand, setLoadedOnHand] = useState(0)
   const [taxCharges, setTaxCharges] = useState<TaxCharge[]>(defaultTaxCharges())
   const [packaging, setPackaging] = useState<Array<{ type: string; unitsPerArticle: number; depositValue: number }>>([])
 
@@ -51,6 +56,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
         stock_minStock: stock.minStock,
         consignment_enabled: consignment.enabled,
       })
+      setLoadedOnHand(stock.onHand)
       const charges = castJson<TaxCharge[]>(article.tax_charges)
       setTaxCharges(charges.length > 0 ? charges : defaultTaxCharges())
       setPackaging(consignment.packaging.map((p) => ({ type: p.type, unitsPerArticle: p.unitsPerArticle, depositValue: p.depositValue })))
@@ -70,16 +76,20 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
     setSaving(true)
     try {
       const validPackaging = packaging.filter((p) => ["BOUTEILLE", "PALETTE", "CASIER"].includes(p.type.toUpperCase()))
-      const updated = await updateArticle(id, {
+      let updated = await updateArticle(id, {
         code: form.code,
         designation: form.designation,
         unit: form.unit || null,
         unit_price_puht: form.unit_price_puht,
         transfer_price: form.transfer_price,
         tax_charges: taxCharges as unknown as Json,
-        stock: { onHand: form.stock_onHand, minStock: form.stock_minStock },
         consignment: { enabled: form.consignment_enabled, packaging: validPackaging } as unknown as Json,
       })
+      // Stock never goes through the plain update: the balance changes only as
+      // a logged adjustment, so the movements ledger always explains it.
+      if (form.type === "product") {
+        updated = await adjustArticleStock(id, form.stock_onHand - loadedOnHand, form.stock_minStock)
+      }
       updateArticleInStore(id, updated)
       await logAction(`Updated article ${updated.code} — ${updated.designation}`, updated.id, updated.organization_id)
       router.push(`/dashboard/articles/${id}`)
@@ -130,6 +140,10 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                 <div className="grid gap-2"><Label>En stock</Label><Input type="number" value={form.stock_onHand} onChange={(e) => setForm({ ...form, stock_onHand: Number(e.target.value) })} /></div>
                 <div className="grid gap-2"><Label>Stock min</Label><Input type="number" value={form.stock_minStock} onChange={(e) => setForm({ ...form, stock_minStock: Number(e.target.value) })} /></div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Les factures et les bons de sortie font varier le stock automatiquement. Toute modification
+                saisie ici est enregistrée comme un ajustement dans les mouvements de stock.
+              </p>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="consignment" checked={form.consignment_enabled} onChange={(e) => setForm({ ...form, consignment_enabled: e.target.checked })} />
                 <Label htmlFor="consignment">Activer la consignation</Label>

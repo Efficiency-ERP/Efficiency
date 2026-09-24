@@ -20,7 +20,7 @@ export default function CreateDeliveryPage() {
   const searchParams = useSearchParams()
   const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
-  const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
+  const { articles } = useArticlesStore()
   const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("deliveries")
   const sourceQuoteId = searchParams.get("sourceQuoteId")
@@ -75,8 +75,7 @@ export default function CreateDeliveryPage() {
     if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
     setLoading(true)
     try {
-      const { delivery, updatedArticles } = await createDelivery({ number: await getNextDocumentNumber(organizationId, "D"), date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", source_quote_id: sourceQuoteId || null }, lines)
-      for (const article of updatedArticles) updateArticleInStore(article.id, article)
+      const delivery = await createDelivery({ number: await getNextDocumentNumber(organizationId, "D"), date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", source_quote_id: sourceQuoteId || null }, lines)
       await logAction(`Created delivery ${delivery.number}`, delivery.id, organizationId)
       router.push("/dashboard/deliveries")
     } catch { alert("Échec de la création du bon de livraison") } finally { setLoading(false) }

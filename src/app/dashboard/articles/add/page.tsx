@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createArticle } from "@/lib/supabase/articles"
+import { adjustArticleStock } from "@/lib/supabase/stock"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useActionLog } from "@/hooks/use-action-log"
@@ -47,7 +48,7 @@ export default function AddArticlePage() {
     setLoading(true)
     try {
       const validPackaging = packaging.filter((p) => ["BOUTEILLE", "PALETTE", "CASIER"].includes(p.type.toUpperCase()))
-      const created = await createArticle({
+      let created = await createArticle({
         type: form.type,
         code: form.code,
         designation: form.designation,
@@ -56,10 +57,15 @@ export default function AddArticlePage() {
         unit_price_puht: form.unit_price_puht,
         transfer_price: form.transfer_price,
         tax_charges: taxCharges as unknown as Json,
-        stock: { onHand: form.stock_onHand, minStock: form.stock_minStock },
+        // Created empty; the opening quantity is then booked as an adjustment
+        // so the movements ledger explains the balance from day one.
+        stock: { onHand: 0, minStock: form.stock_minStock },
         consignment: { enabled: form.consignment_enabled, packaging: validPackaging } as unknown as Json,
         active: true,
       })
+      if (form.type === "product" && form.stock_onHand !== 0) {
+        created = await adjustArticleStock(created.id, form.stock_onHand, form.stock_minStock)
+      }
       addArticle(created)
       await logAction(`Created article ${created.code} — ${created.designation}`, created.id, created.organization_id)
       router.push("/dashboard/articles")
@@ -127,6 +133,10 @@ export default function AddArticlePage() {
               {form.stock_onHand < form.stock_minStock && form.stock_minStock > 0 && (
                 <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">Alerte stock bas : la quantité en stock est inférieure au minimum</div>
               )}
+              <p className="text-xs text-muted-foreground">
+                Les factures et les bons de sortie font varier le stock automatiquement. Toute modification
+                saisie ici est enregistrée comme un ajustement dans les mouvements de stock.
+              </p>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="consignment" checked={form.consignment_enabled} onChange={(e) => setForm({ ...form, consignment_enabled: e.target.checked })} />
                 <Label htmlFor="consignment">Activer la consignation</Label>

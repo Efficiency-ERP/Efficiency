@@ -481,6 +481,7 @@ export interface Database {
           direction: StockMovementDirection
           source_type: StockMovementSourceType
           source_document_id: string | null
+          source_issue_id: string | null
           date: string
           created_at: string
         }
@@ -492,6 +493,7 @@ export interface Database {
           direction: StockMovementDirection
           source_type: StockMovementSourceType
           source_document_id?: string | null
+          source_issue_id?: string | null
           date?: string
           created_at?: string
         }
@@ -503,6 +505,7 @@ export interface Database {
           direction?: StockMovementDirection
           source_type?: StockMovementSourceType
           source_document_id?: string | null
+          source_issue_id?: string | null
           date?: string
         }
       }
@@ -511,7 +514,9 @@ export interface Database {
 }
 
 export type StockMovementDirection = "in" | "out"
-export type StockMovementSourceType = "delivery"
+// "delivery" is kept only so rows written before migration 19 still type;
+// a delivery note no longer moves stock.
+export type StockMovementSourceType = "delivery" | "invoice" | "issue" | "adjustment"
 
 // Convenience types
 export type Tenant = Database["public"]["Tables"]["tenants"]["Row"]

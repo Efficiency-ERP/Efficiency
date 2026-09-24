@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
+import { applyStockMovements, invoiceStockSign } from "@/lib/supabase/stock"
 import { castJson } from "@/lib/utils"
 import type {
   Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance,
@@ -303,7 +303,7 @@ export async function createInvoice(
     transfer_price?: number
     consignments?: ConsignmentCharge[]
   })[]
-): Promise<Invoice> {
+): Promise<{ invoice: Invoice; updatedArticles: Article[] }> {
   const supabase = createClient()
 
   const documentCharges = invoice.charges || []
@@ -370,7 +370,14 @@ export async function createInvoice(
     }
   }
 
-  return inv
+  // The invoice is the stock event — a delivery note is paperwork and moves
+  // nothing. invoiceStockSign decides the direction from flow and subtype.
+  const sign = invoiceStockSign(flow, invoice.type)
+  const updatedArticles = sign === 0
+    ? []
+    : await applyStockMovements({ type: "invoice", documentId: inv.id }, inv.date, lines, sign)
+
+  return { invoice: inv, updatedArticles }
 }
 
 // Picks which packaging container(s) to charge a deposit for, given a
@@ -512,10 +519,13 @@ export async function getDeliveryLines(deliveryId: string): Promise<DeliveryLine
 
 type DeliveryLineInput = Pick<DeliveryLine, "article_id" | "code" | "designation" | "unit" | "quantity">
 
+// A delivery note records the transport and moves no stock: the invoice or
+// the bon de sortie is the stock event, and a delivery is not required for
+// goods to leave.
 export async function createDelivery(
   delivery: DeliveryInput,
   lines: DeliveryLineInput[]
-): Promise<{ delivery: Delivery; updatedArticles: Article[] }> {
+): Promise<Delivery> {
   const supabase = createClient()
 
   const attributes: DocumentAttributes = {
@@ -549,9 +559,7 @@ export async function createDelivery(
     if (linesError) throw linesError
   }
 
-  const updatedArticles = await recordDeliveryStockMovements(del.organization_id, del.id, del.date, lines)
-
-  return { delivery: del, updatedArticles }
+  return del
 }
 
 // ============================================
@@ -677,7 +685,7 @@ export async function markOrderFinal(orderId: string): Promise<Order> {
 
 // ============================================
 // ISSUES — not part of the documents merge (stock-only, never touches
-// money), so this stays exactly as before, querying its own tables.
+// money), so they keep their own tables.
 // ============================================
 
 export async function getIssues(organizationId?: string): Promise<Issue[]> {
@@ -726,7 +734,7 @@ type IssueLineInput = Pick<IssueLine, "code" | "designation" | "unit" | "quantit
 export async function createIssue(
   issue: Omit<Issue, "id" | "created_at">,
   lines: IssueLineInput[]
-): Promise<Issue> {
+): Promise<{ issue: Issue; updatedArticles: Article[] }> {
   const supabase = createClient()
 
   const { data: iss, error: issError } = await supabase
@@ -745,7 +753,12 @@ export async function createIssue(
     if (linesError) throw linesError
   }
 
-  return iss
+  // Goods leave the moment the bon de sortie is written. Issues are created
+  // "draft" and nothing ever finalises one, so gating on status would mean
+  // a bon de sortie never moved stock at all.
+  const updatedArticles = await applyStockMovements({ type: "issue", issueId: iss.id }, iss.date, lines, -1)
+
+  return { issue: iss, updatedArticles }
 }
 
 // ============================================

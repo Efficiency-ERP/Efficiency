@@ -19,7 +19,7 @@ export default function CreateIssuePage() {
   const router = useRouter()
   const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
-  const { articles } = useArticlesStore()
+  const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
   const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("issues")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
@@ -44,7 +44,8 @@ export default function CreateIssuePage() {
     if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
     setLoading(true)
     try {
-      const issue = await createIssue({ number: await getNextDocumentNumber(organizationId, "BS"), date, organization_id: organizationId, counterparty_id: counterpartyId, status: "draft" }, lines)
+      const { issue, updatedArticles } = await createIssue({ number: await getNextDocumentNumber(organizationId, "BS"), date, organization_id: organizationId, counterparty_id: counterpartyId, status: "draft" }, lines)
+      for (const article of updatedArticles) updateArticleInStore(article.id, article)
       await logAction(`Created issue ${issue.number}`, issue.id, organizationId)
       router.push("/dashboard/issues")
     } catch { alert("Échec de la création du bon de sortie") } finally { setLoading(false) }
