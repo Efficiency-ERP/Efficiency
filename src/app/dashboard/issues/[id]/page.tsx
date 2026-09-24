@@ -3,7 +3,6 @@
 import { use, useState, useEffect } from "react"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getIssue, getIssueLines } from "@/lib/supabase/invoices"
@@ -65,7 +64,6 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Tiers :</span> {counterparty?.company_name || "N/A"}</div>
-          <div><span className="text-muted-foreground">Statut :</span> <Badge>{issue.status}</Badge></div>
         </CardContent>
       </Card>
 

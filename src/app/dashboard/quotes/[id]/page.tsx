@@ -11,6 +11,7 @@ import { formatTaxCharges } from "@/components/tax-charges-editor"
 import { getQuote, getQuoteLines, getInvoiceBySourceQuote, getDeliveriesBySourceQuote } from "@/lib/supabase/invoices"
 import { isSelfIssued } from "@/lib/documents/print-config"
 import type { ConsignmentCharge } from "@/lib/supabase/invoices"
+import { quoteStatusLabel } from "@/lib/documents/status-labels"
 import type { Invoice, Quote, QuoteLine, Delivery, InvoiceTotals, TaxCharge } from "@/types/database"
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -85,7 +86,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Tiers :</span> {counterparty?.company_name || "N/A"}</div>
-          <div><span className="text-muted-foreground">Statut :</span> <Badge>{quote.status}</Badge></div>
+          <div><span className="text-muted-foreground">Statut :</span> <Badge>{quoteStatusLabel(quote.status)}</Badge></div>
           {linkedInvoice && (
             <div>
               <span className="text-muted-foreground">Facture :</span>{" "}

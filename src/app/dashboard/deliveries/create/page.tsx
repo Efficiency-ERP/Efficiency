@@ -75,7 +75,7 @@ export default function CreateDeliveryPage() {
     if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
     setLoading(true)
     try {
-      const delivery = await createDelivery({ number: await getNextDocumentNumber(organizationId, "D"), date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "draft", source_quote_id: sourceQuoteId || null }, lines)
+      const delivery = await createDelivery({ number: await getNextDocumentNumber(organizationId, "D"), date, organization_id: organizationId, counterparty_id: counterpartyId, driver_name: null, vehicle_registration: null, status: "final", source_quote_id: sourceQuoteId || null }, lines)
       await logAction(`Created delivery ${delivery.number}`, delivery.id, organizationId)
       router.push("/dashboard/deliveries")
     } catch { alert("Échec de la création du bon de livraison") } finally { setLoading(false) }

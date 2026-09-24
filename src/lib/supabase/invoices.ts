@@ -542,7 +542,7 @@ export async function createDelivery(
       date: delivery.date,
       organization_id: delivery.organization_id,
       counterparty_id: delivery.counterparty_id,
-      status: delivery.status || "draft",
+      status: delivery.status || "final",
       source_document_id: delivery.source_quote_id,
       attributes,
     })
@@ -753,9 +753,8 @@ export async function createIssue(
     if (linesError) throw linesError
   }
 
-  // Goods leave the moment the bon de sortie is written. Issues are created
-  // "draft" and nothing ever finalises one, so gating on status would mean
-  // a bon de sortie never moved stock at all.
+  // A bon de sortie has no draft stage: it records goods that have left, so
+  // it is final — and moves stock — the moment it is written.
   const updatedArticles = await applyStockMovements({ type: "issue", issueId: iss.id }, iss.date, lines, -1)
 
   return { issue: iss, updatedArticles }

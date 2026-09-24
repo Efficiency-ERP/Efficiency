@@ -44,7 +44,7 @@ export default function CreateIssuePage() {
     if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
     setLoading(true)
     try {
-      const { issue, updatedArticles } = await createIssue({ number: await getNextDocumentNumber(organizationId, "BS"), date, organization_id: organizationId, counterparty_id: counterpartyId, status: "draft" }, lines)
+      const { issue, updatedArticles } = await createIssue({ number: await getNextDocumentNumber(organizationId, "BS"), date, organization_id: organizationId, counterparty_id: counterpartyId, status: "final" }, lines)
       for (const article of updatedArticles) updateArticleInStore(article.id, article)
       await logAction(`Created issue ${issue.number}`, issue.id, organizationId)
       router.push("/dashboard/issues")

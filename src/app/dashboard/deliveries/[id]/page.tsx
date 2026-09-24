@@ -3,7 +3,6 @@
 import { use, useState, useEffect } from "react"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getDelivery, getDeliveryLines } from "@/lib/supabase/invoices"
@@ -69,7 +68,6 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
         <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Tiers :</span> {counterparty?.company_name || "N/A"}</div>
-          <div><span className="text-muted-foreground">Statut :</span> <Badge>{delivery.status}</Badge></div>
           {castJson<DocumentAttributes>(delivery.attributes).driver_name && <div><span className="text-muted-foreground">Chauffeur :</span> {castJson<DocumentAttributes>(delivery.attributes).driver_name}</div>}
           {castJson<DocumentAttributes>(delivery.attributes).vehicle_registration && <div><span className="text-muted-foreground">Véhicule :</span> {castJson<DocumentAttributes>(delivery.attributes).vehicle_registration}</div>}
         </CardContent>

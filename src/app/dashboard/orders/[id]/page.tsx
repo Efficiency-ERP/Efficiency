@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { getOrder, getOrderLines, getInvoiceBySourceOrder } from "@/lib/supabase/invoices"
 import { isSelfIssued } from "@/lib/documents/print-config"
+import { orderStatusLabel } from "@/lib/documents/status-labels"
 import { DocumentAttachments } from "@/components/document-attachments"
 import type { Invoice, Order, OrderLine } from "@/types/database"
 
@@ -77,7 +78,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Tiers :</span> {counterparty?.company_name || "N/A"}</div>
           <div><span className="text-muted-foreground">Type :</span> <Badge variant="outline">{order.subtype}</Badge></div>
-          <div><span className="text-muted-foreground">Statut :</span> <Badge>{order.status}</Badge></div>
+          <div><span className="text-muted-foreground">Statut :</span> <Badge>{orderStatusLabel(order.status)}</Badge></div>
           {linkedInvoice && (
             <div>
               <span className="text-muted-foreground">Facture :</span>{" "}

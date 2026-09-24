@@ -6,7 +6,6 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { getDeliveries } from "@/lib/supabase/invoices"
 import { SectionTabs } from "@/components/section-tabs"
@@ -68,13 +67,12 @@ export default function DeliveriesListPage() {
                   <th className="text-left p-3">Numéro</th>
                   <th className="text-left p-3">Date</th>
                   <th className="text-left p-3">Tiers</th>
-                  <th className="text-left p-3">Statut</th>
                   <th className="text-right p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredDeliveries.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Aucun bon de livraison</td></tr>
+                  <tr><td colSpan={4} className="text-center p-8 text-muted-foreground">Aucun bon de livraison</td></tr>
                 ) : filteredDeliveries.map((d) => (
                   <tr key={d.id} className="border-b hover:bg-muted/30">
                     <td className="p-3">
@@ -84,7 +82,6 @@ export default function DeliveriesListPage() {
                     </td>
                     <td className="p-3">{d.date}</td>
                     <td className="p-3">{contactById.get(d.counterparty_id)?.company_name || "N/A"}</td>
-                    <td className="p-3"><Badge variant={d.status === "final" ? "default" : "outline"}>{d.status}</Badge></td>
                     <td className="p-3 text-right">
                       <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/deliveries/${d.id}`)}>Voir</Button>
                     </td>

@@ -6,7 +6,6 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { getIssues } from "@/lib/supabase/invoices"
 import { SectionTabs } from "@/components/section-tabs"
@@ -68,13 +67,12 @@ export default function IssuesListPage() {
                   <th className="text-left p-3">Numéro</th>
                   <th className="text-left p-3">Date</th>
                   <th className="text-left p-3">Tiers</th>
-                  <th className="text-left p-3">Statut</th>
                   <th className="text-right p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredIssues.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Aucun bon de sortie</td></tr>
+                  <tr><td colSpan={4} className="text-center p-8 text-muted-foreground">Aucun bon de sortie</td></tr>
                 ) : filteredIssues.map((i) => (
                   <tr key={i.id} className="border-b hover:bg-muted/30">
                     <td className="p-3">
@@ -84,7 +82,6 @@ export default function IssuesListPage() {
                     </td>
                     <td className="p-3">{i.date}</td>
                     <td className="p-3">{contactById.get(i.counterparty_id)?.company_name || "N/A"}</td>
-                    <td className="p-3"><Badge variant={i.status === "final" ? "default" : "outline"}>{i.status}</Badge></td>
                     <td className="p-3 text-right">
                       <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/issues/${i.id}`)}>Voir</Button>
                     </td>

@@ -12,6 +12,7 @@ import { formatTND, castJson } from "@/lib/utils"
 import { getQuotes } from "@/lib/supabase/invoices"
 import { SectionTabs } from "@/components/section-tabs"
 import { SALES_TABS } from "@/lib/section-tabs-config"
+import { quoteStatusLabel } from "@/lib/documents/status-labels"
 import type { Quote, InvoiceTotals } from "@/types/database"
 
 export default function AllQuotesPage() {
@@ -108,7 +109,7 @@ export default function AllQuotesPage() {
                         </button>
                       </td>
                       <td className="p-3">{q.date}</td>
-                      <td className="p-3"><Badge variant={statusVariant(q.status || "draft")}>{q.status}</Badge></td>
+                      <td className="p-3"><Badge variant={statusVariant(q.status || "draft")}>{quoteStatusLabel(q.status)}</Badge></td>
                       <td className="p-3 text-right">{formatTND(totals.total_incl_tax || 0)}</td>
                       <td className="p-3 text-right">
                         <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>Voir</Button>

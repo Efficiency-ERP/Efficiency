@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation"
 import { getOrders } from "@/lib/supabase/invoices"
 import { SectionTabs } from "@/components/section-tabs"
 import { PURCHASING_TABS } from "@/lib/section-tabs-config"
+import { orderStatusLabel } from "@/lib/documents/status-labels"
 import type { Order } from "@/types/database"
 
 export default function OrdersListPage() {
@@ -100,7 +101,7 @@ export default function OrdersListPage() {
                     <td className="p-3">{o.date}</td>
                     <td className="p-3">{contactById.get(o.counterparty_id)?.company_name || "N/A"}</td>
                     <td className="p-3"><Badge variant="outline">{o.subtype}</Badge></td>
-                    <td className="p-3"><Badge variant={o.status === "final" ? "default" : "outline"}>{o.status}</Badge></td>
+                    <td className="p-3"><Badge variant={o.status === "final" ? "default" : "outline"}>{orderStatusLabel(o.status)}</Badge></td>
                     <td className="p-3 text-right">
                       <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/orders/${o.id}`)}>Voir</Button>
                     </td>
