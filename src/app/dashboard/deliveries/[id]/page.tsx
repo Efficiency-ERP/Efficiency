@@ -57,7 +57,7 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
         <div className="flex gap-2">
           {isSelfIssued("delivery", delivery) && (
             <Button variant="outline" onClick={() => router.push(`/documents/delivery/${delivery.id}`)}>
-              Print / PDF
+              Imprimer / PDF
             </Button>
           )}
           <Button variant="outline" onClick={() => router.back()}>Retour</Button>

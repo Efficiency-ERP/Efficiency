@@ -191,7 +191,7 @@ export function FeedbackWidget() {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Paperclip className="size-3" />
-                    Add files
+                    Ajouter des fichiers
                   </Button>
                 </div>
                 <input
@@ -245,7 +245,7 @@ export function FeedbackWidget() {
                 ) : (
                   <>
                     <Send className="size-4" />
-                    Submit Feedback
+                    Envoyer le retour
                   </>
                 )}
               </Button>

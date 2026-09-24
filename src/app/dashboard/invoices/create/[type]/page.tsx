@@ -315,9 +315,13 @@ export default function CreateInvoiceFormPage({ params }: { params: Promise<{ ty
 
   const pageTitle = sourceLabel
     ? isAdjustment
-      ? `${invoiceType === "credit" ? "Ajouter un avoir" : "Ajouter une facture de débit"} — from ${sourceLabel}`
-      : `Confirm Invoice — from ${sourceLabel}`
-    : `Create ${type} Invoice`
+      ? `${invoiceType === "credit" ? "Ajouter un avoir" : "Ajouter une facture de débit"} — depuis ${sourceLabel}`
+      : `Confirmer la facture — depuis ${sourceLabel}`
+    : invoiceType === "credit"
+      ? "Créer un avoir"
+      : invoiceType === "debit"
+        ? "Créer une facture de débit"
+        : "Créer une facture"
 
   return (
     <div className="max-w-4xl space-y-6">

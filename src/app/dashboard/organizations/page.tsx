@@ -24,7 +24,7 @@ export default function OrganizationsPage() {
               </div>
             </div>
             <Button variant="outline" onClick={() => router.push(`/dashboard/organizations/${org.id}/edit`)}>
-              Edit
+              Modifier
             </Button>
           </div>
         ))}

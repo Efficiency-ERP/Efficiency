@@ -83,7 +83,7 @@ export default function CreateDeliveryPage() {
 
   const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
   const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
-  const pageTitle = sourceLabel ? `Confirm Delivery — from ${sourceLabel}` : "Create Delivery (BL)"
+  const pageTitle = sourceLabel ? `Confirmer la livraison — depuis ${sourceLabel}` : "Créer un bon de livraison (BL)"
 
   if (prefilling) return <div className="text-muted-foreground">Chargement du document source...</div>
 

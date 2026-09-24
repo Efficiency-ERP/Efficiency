@@ -56,7 +56,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => router.push(`/documents/issue/${issue.id}`)}>
-            Print / PDF
+            Imprimer / PDF
           </Button>
           <Button variant="outline" onClick={() => router.back()}>Retour</Button>
         </div>

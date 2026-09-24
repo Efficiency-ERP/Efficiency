@@ -86,7 +86,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
           {isSelfIssued("invoice", invoice) && (
             <Button variant="outline" onClick={() => router.push(`/documents/invoice/${invoice.id}`)}>
-              Print / PDF
+              Imprimer / PDF
             </Button>
           )}
         </div>

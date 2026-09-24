@@ -85,7 +85,7 @@ function LoginForm() {
 			<div className="flex flex-col gap-2 text-center">
 				<h1 className="text-2xl font-bold">Connexion</h1>
 				<p className="text-balance text-muted-foreground">
-					Enter your email below to login to your account
+					Saisissez votre e-mail pour vous connecter à votre compte
 				</p>
 			</div>
 			{error && (
@@ -112,7 +112,7 @@ function LoginForm() {
 							href="#"
 							className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
 						>
-							Forgot your password?
+							Mot de passe oublié ?
 						</a>
 					</div>
 					<Input

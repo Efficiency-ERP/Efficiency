@@ -242,7 +242,7 @@ export default function DashboardHome() {
             </div>
             <Separator className="my-2" />
             <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/invoices")}>
-              All Invoices
+              Toutes les factures
             </Button>
           </CardContent>
         </Card>
@@ -298,7 +298,7 @@ export default function DashboardHome() {
               <div className="text-sm text-muted-foreground">
                 No low stock —{" "}
                 <button onClick={() => router.push("/dashboard/orders/create?type=supplier")} className="underline">
-                  Create supplier order
+                  Créer une commande fournisseur
                 </button>
               </div>
             )}

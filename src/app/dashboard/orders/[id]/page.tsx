@@ -61,12 +61,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="flex gap-2">
           {isSelfIssued("order", order) && (
             <Button variant="outline" onClick={() => router.push(`/documents/order/${order.id}`)}>
-              Print / PDF
+              Imprimer / PDF
             </Button>
           )}
           {!linkedInvoice && (
             <Button onClick={() => router.push(`/dashboard/invoices/create/standard?sourceOrderId=${order.id}`)}>
-              Confirm Invoice
+              Confirmer la facture
             </Button>
           )}
           <Button variant="outline" onClick={() => router.back()}>Retour</Button>
@@ -83,7 +83,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <div>
               <span className="text-muted-foreground">Facture :</span>{" "}
               <button className="underline hover:no-underline" onClick={() => router.push(`/dashboard/invoices/${linkedInvoice.id}`)}>
-                View invoice
+                Voir la facture
               </button>
             </div>
           )}

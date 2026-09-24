@@ -110,7 +110,7 @@ export function NavUser() {
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/profile" className="flex items-center gap-2">
                   <UserCircle />
-                  Profile
+                  Profil
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -122,14 +122,14 @@ export function NavUser() {
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/settings" className="flex items-center gap-2">
                   <Settings />
-                  Settings
+                  Paramètres
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
               <LogOut />
-              Log out
+              Se déconnecter
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
