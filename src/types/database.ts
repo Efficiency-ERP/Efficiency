@@ -348,8 +348,9 @@ export interface Database {
           number: string
           date: string
           organization_id: string
-          counterparty_id: string
+          counterparty_id: string | null
           status: DocumentStatus
+          direction: IssueDirection
           created_at: string
         }
         Insert: {
@@ -357,8 +358,9 @@ export interface Database {
           number: string
           date?: string
           organization_id: string
-          counterparty_id: string
+          counterparty_id?: string | null
           status?: DocumentStatus
+          direction?: IssueDirection
           created_at?: string
         }
         Update: {
@@ -366,8 +368,9 @@ export interface Database {
           number?: string
           date?: string
           organization_id?: string
-          counterparty_id?: string
+          counterparty_id?: string | null
           status?: DocumentStatus
+          direction?: IssueDirection
         }
       }
       issue_lines: {
@@ -514,6 +517,8 @@ export interface Database {
 }
 
 export type StockMovementDirection = "in" | "out"
+// A bon de sortie ("out") or a bon d'entrée ("in"): both live in `issues`.
+export type IssueDirection = "in" | "out"
 // "delivery" is kept only so rows written before migration 19 still type;
 // a delivery note no longer moves stock.
 export type StockMovementSourceType = "delivery" | "invoice" | "issue" | "adjustment"

@@ -40,8 +40,8 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
   if (!issue) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
-      <h2 className="text-xl font-bold">Bon de sortie introuvable</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/issues")}>Retour aux bons de sortie</Button>
+      <h2 className="text-xl font-bold">Bon introuvable</h2>
+      <Button variant="outline" onClick={() => router.push("/dashboard/issues")}>Retour aux bons</Button>
     </div>
   )
 
@@ -50,7 +50,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{issue.number}</h1>
-          <p className="text-muted-foreground">{issue.date}</p>
+          <p className="text-muted-foreground">
+            {issue.direction === "in" ? "Bon d\u2019entrée" : "Bon de sortie"} · {issue.date}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => router.push(`/documents/issue/${issue.id}`)}>
@@ -63,7 +65,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       <Card>
         <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Tiers :</span> {counterparty?.company_name || "N/A"}</div>
+          <div>
+            <span className="text-muted-foreground">{issue.direction === "in" ? "Provenance :" : "Tiers :"}</span>{" "}
+            {counterparty?.company_name || "—"}
+          </div>
         </CardContent>
       </Card>
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
@@ -14,9 +14,16 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
+import type { IssueDirection } from "@/types/database"
+
+const NO_COUNTERPARTY = "__none__"
 
 export default function CreateIssuePage() {
   const router = useRouter()
+  // One form for both: a bon de sortie takes goods out, a bon d'entrée is a
+  // correction that adds them back when a count turns out to be wrong.
+  const direction: IssueDirection = useSearchParams().get("direction") === "in" ? "in" : "out"
+  const isEntry = direction === "in"
   const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
   const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
@@ -25,38 +32,53 @@ export default function CreateIssuePage() {
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number }>>([])
+  const [lines, setLines] = useState<Array<{ article_id: string | null; code: string; designation: string; unit: string | null; quantity: number }>>([])
   const [loading, setLoading] = useState(false)
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
     if (!article) return
-    setLines([...lines, { code: article.code, designation: article.designation, unit: article.unit, quantity: 1 }])
+    setLines([...lines, { article_id: article.id, code: article.code, designation: article.designation, unit: article.unit, quantity: 1 }])
   }
-  const addFreeformLine = () => setLines([...lines, { code: "", designation: "", unit: null, quantity: 1 }])
+  const addFreeformLine = () => setLines([...lines, { article_id: null, code: "", designation: "", unit: null, quantity: 1 }])
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => { const u = [...lines]; u[i] = { ...u[i], ...patch }; setLines(u) }
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!organizationId) { alert("Sélectionner une organisation"); return }
-    if (!counterpartyId) { alert("Sélectionner un tiers"); return }
+    if (!isEntry && !counterpartyId) { alert("Sélectionner un tiers"); return }
     if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
     setLoading(true)
     try {
-      const { issue, updatedArticles } = await createIssue({ number: await getNextDocumentNumber(organizationId, "BS"), date, organization_id: organizationId, counterparty_id: counterpartyId, status: "final" }, lines)
+      const { issue, updatedArticles } = await createIssue({
+        number: await getNextDocumentNumber(organizationId, isEntry ? "BE" : "BS"),
+        date,
+        organization_id: organizationId,
+        counterparty_id: counterpartyId || null,
+        status: "final",
+        direction,
+      }, lines)
       for (const article of updatedArticles) updateArticleInStore(article.id, article)
-      await logAction(`Created issue ${issue.number}`, issue.id, organizationId)
+      await logAction(`Created ${isEntry ? "stock entry" : "issue"} ${issue.number}`, issue.id, organizationId)
       router.push("/dashboard/issues")
-    } catch { alert("Échec de la création du bon de sortie") } finally { setLoading(false) }
+    } catch { alert(isEntry ? "Échec de la création du bon d'entrée" : "Échec de la création du bon de sortie") } finally { setLoading(false) }
   }
 
-  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
+  const filteredContacts = sortMyOrganizationsFirst(
+    isEntry ? contacts : contacts.filter((c) => c.party_type !== "supplier"),
+    isContactMyOrganization
+  )
   const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Créer un bon de sortie (BS)</h1>
+      <h1 className="text-2xl font-bold">{isEntry ? "Créer un bon d\u2019entrée (BE)" : "Créer un bon de sortie (BS)"}</h1>
+      {isEntry && (
+        <p className="text-sm text-muted-foreground">
+          Correction de stock à la hausse : les quantités saisies sont ajoutées au stock des articles.
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
@@ -74,10 +96,14 @@ export default function CreateIssuePage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label>Tiers *</Label>
-                <Select value={counterpartyId} onValueChange={setCounterpartyId}>
+                <Label>{isEntry ? "Provenance (facultatif)" : "Tiers *"}</Label>
+                <Select
+                  value={counterpartyId || (isEntry ? NO_COUNTERPARTY : "")}
+                  onValueChange={(v) => setCounterpartyId(v === NO_COUNTERPARTY ? "" : v)}
+                >
                   <SelectTrigger><SelectValue placeholder="Sélectionner un contact" /></SelectTrigger>
                   <SelectContent>
+                    {isEntry && <SelectItem value={NO_COUNTERPARTY}>Aucune</SelectItem>}
                     {filteredContacts.map((c) => (
                       <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
@@ -89,7 +115,7 @@ export default function CreateIssuePage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>Numéro</Label><Input value="Auto-generated on save" readOnly /></div>
+              <div className="grid gap-2"><Label>Numéro</Label><Input value="Généré à l'enregistrement" readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             </div>
           </CardContent>
@@ -119,7 +145,7 @@ export default function CreateIssuePage() {
             )}
           </CardContent>
         </Card>
-        <div className="flex gap-4"><Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer le bon de sortie"}</Button><Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button></div>
+        <div className="flex gap-4"><Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : isEntry ? "Enregistrer le bon d\u2019entrée" : "Enregistrer le bon de sortie"}</Button><Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button></div>
       </form>
     </div>
   )

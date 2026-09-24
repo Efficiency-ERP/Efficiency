@@ -236,7 +236,8 @@ export function buildDocumentViewModel(
     const { document, lines } = source
     return {
       kind: "issue",
-      subtype: null,
+      // "in" for a bon d'entrée, "out" for a bon de sortie — documentTitle reads it.
+      subtype: document.direction,
       number: document.number,
       date: document.date,
       dueDate: null,

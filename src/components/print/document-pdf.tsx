@@ -248,6 +248,7 @@ function TotalsBlock({ subtotal, charges, total }: { subtotal: number; charges: 
 export function DocumentPdf({ vm }: { vm: DocumentSheetViewModel }) {
   const config = PRINT_KIND_CONFIG[vm.kind]
   const title = documentTitle(vm.kind, vm.subtype)
+  const isStockEntry = vm.kind === "issue" && vm.subtype === "in"
   const salesTerms = vm.issuer?.salesTerms || vm.counterparty?.salesTerms
   const bank = vm.issuer?.bankDetails
   const bankLine = bank
@@ -294,7 +295,15 @@ export function DocumentPdf({ vm }: { vm: DocumentSheetViewModel }) {
 
         <View style={styles.parties}>
           <PartyBox heading="Émetteur" party={vm.issuer} showTaxId={config.showTaxIds} />
-          <PartyBox heading={config.counterpartyLabel} party={vm.counterparty} showTaxId={config.showTaxIds} />
+          {/* A bon d'entrée records a correction and often has no counterparty at all;
+              when it does, the goods came from them rather than went to them. */}
+          {isStockEntry && !vm.counterparty ? null : (
+            <PartyBox
+              heading={isStockEntry ? "Provenance" : config.counterpartyLabel}
+              party={vm.counterparty}
+              showTaxId={config.showTaxIds}
+            />
+          )}
         </View>
 
         {config.showDeliveryDetails && (vm.driverName || vm.vehicleRegistration) ? (

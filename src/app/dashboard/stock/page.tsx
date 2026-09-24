@@ -116,8 +116,11 @@ export default function StockMovementsPage() {
       accessorKey: "source_type",
       header: "Source",
       cell: ({ row }) => {
-        const { source_type, source_document_id, source_issue_id } = row.original
-        const label = SOURCE_LABELS[source_type] ?? source_type
+        const { source_type, source_document_id, source_issue_id, direction } = row.original
+        // Bons d'entrée and de sortie share a source type; the direction tells them apart.
+        const label = source_type === "issue" && direction === "in"
+          ? "Bon d\u2019entrée"
+          : SOURCE_LABELS[source_type] ?? source_type
         const sourceId = source_issue_id ?? source_document_id
         const route = SOURCE_ROUTES[source_type]
         if (sourceId && route) {

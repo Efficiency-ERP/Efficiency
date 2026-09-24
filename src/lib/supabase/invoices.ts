@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import { applyStockMovements, invoiceStockSign } from "@/lib/supabase/stock"
+import { applyStockMovements, invoiceStockSign, issueStockSign } from "@/lib/supabase/stock"
 import { castJson } from "@/lib/utils"
 import type {
   Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance,
@@ -753,9 +753,11 @@ export async function createIssue(
     if (linesError) throw linesError
   }
 
-  // A bon de sortie has no draft stage: it records goods that have left, so
-  // it is final — and moves stock — the moment it is written.
-  const updatedArticles = await applyStockMovements({ type: "issue", issueId: iss.id }, iss.date, lines, -1)
+  // Neither a bon de sortie nor a bon d'entrée has a draft stage: each is
+  // final — and moves stock — the moment it is written.
+  const updatedArticles = await applyStockMovements(
+    { type: "issue", issueId: iss.id }, iss.date, lines, issueStockSign(iss.direction)
+  )
 
   return { issue: iss, updatedArticles }
 }

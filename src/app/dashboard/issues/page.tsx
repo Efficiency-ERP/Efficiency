@@ -6,6 +6,7 @@ import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { getIssues } from "@/lib/supabase/invoices"
 import { SectionTabs } from "@/components/section-tabs"
@@ -49,11 +50,14 @@ export default function IssuesListPage() {
     <div className="space-y-4">
       <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Bons de sortie</h1>
-        <Button onClick={() => router.push("/dashboard/issues/create")}>Créer un bon de sortie</Button>
+        <h1 className="text-2xl font-bold">Bons d&apos;entrée et de sortie</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push("/dashboard/issues/create?direction=in")}>Créer un bon d&apos;entrée</Button>
+          <Button onClick={() => router.push("/dashboard/issues/create")}>Créer un bon de sortie</Button>
+        </div>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Chargement des bons de sortie...</div>
+        <div className="text-muted-foreground">Chargement des bons...</div>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-1 md:max-w-xs">
@@ -65,6 +69,7 @@ export default function IssuesListPage() {
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className="text-left p-3">Numéro</th>
+                  <th className="text-left p-3">Type</th>
                   <th className="text-left p-3">Date</th>
                   <th className="text-left p-3">Tiers</th>
                   <th className="text-right p-3">Actions</th>
@@ -72,7 +77,7 @@ export default function IssuesListPage() {
               </thead>
               <tbody>
                 {filteredIssues.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center p-8 text-muted-foreground">Aucun bon de sortie</td></tr>
+                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Aucun bon</td></tr>
                 ) : filteredIssues.map((i) => (
                   <tr key={i.id} className="border-b hover:bg-muted/30">
                     <td className="p-3">
@@ -80,8 +85,13 @@ export default function IssuesListPage() {
                         {i.number}
                       </button>
                     </td>
+                    <td className="p-3">
+                      <Badge variant={i.direction === "in" ? "default" : "secondary"}>
+                        {i.direction === "in" ? "Entrée" : "Sortie"}
+                      </Badge>
+                    </td>
                     <td className="p-3">{i.date}</td>
-                    <td className="p-3">{contactById.get(i.counterparty_id)?.company_name || "N/A"}</td>
+                    <td className="p-3">{(i.counterparty_id && contactById.get(i.counterparty_id)?.company_name) || "—"}</td>
                     <td className="p-3 text-right">
                       <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/issues/${i.id}`)}>Voir</Button>
                     </td>

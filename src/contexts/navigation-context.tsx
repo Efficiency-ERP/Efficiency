@@ -112,7 +112,7 @@ function generateBreadcrumbs(path: string): Array<{ label: string; href: string;
     breadcrumbs.push({ label: "Stock", href: "/dashboard/stock", isLast: true })
   } else if (pathSegments.includes("issues")) {
     breadcrumbs.push({ label: "Articles", href: "/dashboard/articles", isLast: false })
-    breadcrumbs.push({ label: "Bons de sortie", href: "/dashboard/issues", isLast: true })
+    breadcrumbs.push({ label: "Entrées / Sorties", href: "/dashboard/issues", isLast: true })
   } else if (pathSegments.includes("consignments")) {
     breadcrumbs.push({ label: "Consignations", href: "/dashboard/consignments", isLast: true })
   } else if (pathSegments.includes("profile")) {

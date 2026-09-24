@@ -131,7 +131,7 @@ export default function DocumentPrintPage({
 
         const [issuer, counterparty] = await Promise.all([
           getOrganization(doc.organization_id),
-          getContact(doc.counterparty_id),
+          doc.counterparty_id ? getContact(doc.counterparty_id) : Promise.resolve(null),
         ])
 
         const issuerLogo = issuer?.logo_path ? await getOrganizationLogoDataUrl(issuer.logo_path) : null

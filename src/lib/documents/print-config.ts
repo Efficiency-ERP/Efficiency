@@ -119,6 +119,7 @@ export function documentTitle(kind: PrintableKind, subtype: string | null): stri
   if (kind === "invoice") {
     return INVOICE_SUBTYPE_LABELS[(subtype as InvoiceType) || "standard"] ?? "FACTURE"
   }
+  if (kind === "issue" && subtype === "in") return "BON D\u2019ENTRÉE"
   return PRINT_KIND_CONFIG[kind].label
 }
 

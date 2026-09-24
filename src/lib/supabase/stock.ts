@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import type { Article, DocumentFlow, InvoiceType, StockMovement } from "@/types/database"
+import type { Article, DocumentFlow, InvoiceType, IssueDirection, StockMovement } from "@/types/database"
 
 export async function getStockMovements(organizationId?: string): Promise<StockMovement[]> {
   const supabase = createClient()
@@ -27,6 +27,11 @@ export function invoiceStockSign(flow: DocumentFlow, subtype: InvoiceType): -1 |
   const outward = flow === "sale"
   const reversed = subtype === "credit"
   return outward !== reversed ? -1 : 1
+}
+
+// A bon de sortie takes goods out; a bon d'entrée is a correction that adds.
+export function issueStockSign(direction: IssueDirection): -1 | 1 {
+  return direction === "in" ? 1 : -1
 }
 
 export type StockSource =
