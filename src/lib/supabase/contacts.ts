@@ -155,35 +155,23 @@ export async function getOrganizations(): Promise<Organization[]> {
   return data || []
 }
 
-// Stands up a brand-new tenant (one org under it, run by its creator as
-// admin) — the only entry point today, since there's no UI yet for adding
-// a second org to an existing tenant. Order matters: the tenant and the
-// creator's membership must exist before the org insert, since the org's
-// own RLS policy requires the caller to already belong to its tenant_id.
-export async function createOrganization(org: NewOrganization): Promise<Organization> {
+// Creates an organization and its internal contact in one transaction, through
+// create_organization (supabase/21-organizations-in-tenant.sql). With a tenant
+// id it joins that group — admins only, as the database enforces. With null it
+// is first-time onboarding: a new group with the caller as its admin, which
+// the database allows only for someone who belongs to no group yet.
+//
+// This cannot be done as client-side inserts: reading a new tenant or a new
+// organization back in the same statement fails its SELECT policy.
+export async function createOrganization(
+  org: NewOrganization,
+  tenantId: string | null
+): Promise<{ organization: Organization; contact: Contact }> {
   const supabase = createClient()
-
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError) throw userError
-
-  const { data: tenant, error: tenantError } = await supabase
-    .from("tenants")
-    .insert({ name: org.name })
-    .select()
-    .single()
-  if (tenantError) throw tenantError
-
-  const { error: membershipError } = await supabase
-    .from("user_tenants")
-    .insert({ user_id: userData.user.id, tenant_id: tenant.id, role: "admin" })
-  if (membershipError) throw membershipError
-
-  const { data, error } = await supabase
-    .from("organizations")
-    .insert({ ...org, tenant_id: tenant.id })
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("create_organization", {
+    p_tenant_id: tenantId,
+    p_org: org,
+  })
   if (error) throw error
-
-  return data
+  return data as { organization: Organization; contact: Contact }
 }

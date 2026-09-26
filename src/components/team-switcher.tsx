@@ -5,6 +5,7 @@ import { ChevronsUpDown, Plus, Building2, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useOrganizationSelection } from "@/contexts/organization-context"
+import { canAddOrganization, useUser } from "@/contexts/user-context"
 
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ export function TeamSwitcher() {
   const { selectedOrgId, setSelectedOrgId } = useOrganizationSelection()
   const router = useRouter()
 
+  const { tenants } = useUser()
   const handleAddOrganization = () => {
     router.push("/dashboard/organizations/add")
   }
@@ -92,13 +94,17 @@ export function TeamSwitcher() {
                 <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2" onClick={handleAddOrganization}>
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">Ajouter une organisation</div>
-            </DropdownMenuItem>
+            {canAddOrganization(tenants) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 p-2" onClick={handleAddOrganization}>
+                  <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                    <Plus className="size-4" />
+                  </div>
+                  <div className="text-muted-foreground font-medium">Ajouter une organisation</div>
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

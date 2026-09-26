@@ -1,18 +1,22 @@
 "use client"
 
 import { useContactsStore } from "@/contexts/contacts-store"
+import { canAddOrganization, useUser } from "@/contexts/user-context"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 export default function OrganizationsPage() {
   const { organizations } = useContactsStore()
+  const { tenants } = useUser()
   const router = useRouter()
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Organisations</h1>
-        <Button onClick={() => router.push("/dashboard/organizations/add")}>Ajouter une organisation</Button>
+        {canAddOrganization(tenants) && (
+          <Button onClick={() => router.push("/dashboard/organizations/add")}>Ajouter une organisation</Button>
+        )}
       </div>
       <div className="grid gap-4">
         {organizations.map((org) => (
