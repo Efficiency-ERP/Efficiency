@@ -1,5 +1,7 @@
 "use client"
 
+import { useMyOrganization } from "@/hooks/use-my-organization"
+import { IntercoBadge } from "@/components/organization-option"
 import { useState, useEffect, useMemo } from "react"
 import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
@@ -17,6 +19,7 @@ import type { Order } from "@/types/database"
 
 export default function OrdersListPage() {
   const router = useRouter()
+  const { isInterco } = useMyOrganization()
   const { selectedOrgId } = useOrganizationSelection()
   const { contacts } = useContactsStore()
   const [search, setSearch] = useState("")
@@ -72,7 +75,6 @@ export default function OrdersListPage() {
                 <SelectItem value="all">Tous les types</SelectItem>
                 <SelectItem value="supplier">Fournisseur</SelectItem>
                 <SelectItem value="customer">Client</SelectItem>
-                <SelectItem value="interco">Interco</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -97,10 +99,11 @@ export default function OrdersListPage() {
                       <button onClick={() => router.push(`/dashboard/orders/${o.id}`)} className="underline hover:no-underline">
                         {o.number}
                       </button>
+                      {isInterco(o) && <IntercoBadge />}
                     </td>
                     <td className="p-3">{o.date}</td>
                     <td className="p-3">{contactById.get(o.counterparty_id)?.company_name || "N/A"}</td>
-                    <td className="p-3"><Badge variant="outline">{o.subtype}</Badge></td>
+                    <td className="p-3"><Badge variant="outline">{o.subtype === "customer" ? "Client" : "Fournisseur"}</Badge></td>
                     <td className="p-3"><Badge variant={o.status === "final" ? "default" : "outline"}>{orderStatusLabel(o.status)}</Badge></td>
                     <td className="p-3 text-right">
                       <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/orders/${o.id}`)}>Voir</Button>

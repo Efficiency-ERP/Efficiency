@@ -129,7 +129,7 @@ export default function CreateQuotePage() {
     }
   }
 
-  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
+  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.internal_organization_id !== organizationId && c.party_type !== "supplier"), isContactMyOrganization)
   const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
   const totals = computeInvoiceTotals(lines)

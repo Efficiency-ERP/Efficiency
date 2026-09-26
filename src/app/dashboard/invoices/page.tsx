@@ -1,5 +1,7 @@
 "use client"
 
+import { useMyOrganization } from "@/hooks/use-my-organization"
+import { IntercoBadge } from "@/components/organization-option"
 import { useState, useEffect, useMemo } from "react"
 import { useOrganizationSelection } from "@/contexts/organization-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +16,7 @@ import type { Invoice, InvoiceTotals, InvoiceType } from "@/types/database"
 
 export default function AllInvoicesPage() {
   const router = useRouter()
+  const { isInterco } = useMyOrganization()
   const { selectedOrgId } = useOrganizationSelection()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
@@ -104,6 +107,7 @@ export default function AllInvoicesPage() {
                     <button onClick={() => router.push(`/dashboard/invoices/${inv.id}`)} className="underline hover:no-underline">
                       {inv.number}
                     </button>
+                    {isInterco(inv) && <IntercoBadge />}
                   </td>
                   <td className="p-3">{inv.date}</td>
                   <td className="p-3"><Badge variant="outline">{inv.subtype}</Badge></td>

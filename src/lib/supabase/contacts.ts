@@ -5,21 +5,15 @@ import type { Contact, Organization } from "@/types/database"
 // not at creation.
 type NewOrganization = Omit<Organization, "id" | "tenant_id" | "created_at" | "logo_path" | "bank_details" | "stamp_duty">
 
-export async function getContacts(organizationId?: string): Promise<Contact[]> {
+// Every contact of the caller's tenants. Deciding which ones an organization
+// may trade with (not its own entry) is the caller's job.
+export async function getContacts(): Promise<Contact[]> {
   const supabase = createClient()
-  let query = supabase
+  const { data, error } = await supabase
     .from("contacts")
     .select("*")
     .eq("archived", false)
     .order("company_name")
-
-  if (organizationId) {
-    query = query.or(
-      `is_internal_org.eq.false,internal_organization_id.eq.${organizationId}`
-    )
-  }
-
-  const { data, error } = await query
   if (error) throw error
   return data || []
 }

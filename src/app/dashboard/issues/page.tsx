@@ -1,5 +1,7 @@
 "use client"
 
+import { useMyOrganization } from "@/hooks/use-my-organization"
+import { IntercoBadge } from "@/components/organization-option"
 import { useState, useEffect, useMemo } from "react"
 import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
@@ -15,6 +17,7 @@ import type { Issue } from "@/types/database"
 
 export default function IssuesListPage() {
   const router = useRouter()
+  const { isInterco } = useMyOrganization()
   const { selectedOrgId } = useOrganizationSelection()
   const { contacts } = useContactsStore()
   const [search, setSearch] = useState("")
@@ -84,6 +87,7 @@ export default function IssuesListPage() {
                       <button onClick={() => router.push(`/dashboard/issues/${i.id}`)} className="underline hover:no-underline">
                         {i.number}
                       </button>
+                      {isInterco(i) && <IntercoBadge />}
                     </td>
                     <td className="p-3">
                       <Badge variant={i.direction === "in" ? "default" : "secondary"}>

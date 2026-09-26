@@ -1,5 +1,6 @@
 "use client"
 
+import { partyTypeLabel } from "@/components/party-type-field"
 import { useState, useMemo } from "react"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useOrganizationSelection } from "@/contexts/organization-context"
@@ -39,8 +40,10 @@ export default function ListContactsPage() {
         return false
       }
       // Organization filter
-      if (selectedOrgId !== "all") {
-        if (c.is_internal_org && c.internal_organization_id !== selectedOrgId) return false
+      // An organization does not trade with itself: with one selected, its own
+      // entry is hidden, while its sister organizations stay listed.
+      if (selectedOrgId !== "all" && c.internal_organization_id === selectedOrgId) {
+        return false
       }
       return true
     })
@@ -58,7 +61,6 @@ export default function ListContactsPage() {
           >
             {row.original.company_name}
           </button>
-          {row.original.is_internal_org && <Badge variant="secondary">Interne</Badge>}
         </div>
       ),
     },
@@ -90,7 +92,7 @@ export default function ListContactsPage() {
       header: "Type",
       cell: ({ row }) => (
         <Badge variant={row.original.party_type === "customer" ? "default" : row.original.party_type === "supplier" ? "secondary" : "outline"}>
-          {row.original.party_type}
+          {partyTypeLabel(row.original.party_type)}
         </Badge>
       ),
     },

@@ -66,7 +66,7 @@ export default function CreateIssuePage() {
   }
 
   const filteredContacts = sortMyOrganizationsFirst(
-    isEntry ? contacts : contacts.filter((c) => c.party_type !== "supplier"),
+    (isEntry ? contacts : contacts.filter((c) => c.party_type !== "supplier")).filter((c) => c.internal_organization_id !== organizationId),
     isContactMyOrganization
   )
   const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)

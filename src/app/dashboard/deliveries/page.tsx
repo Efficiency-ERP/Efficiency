@@ -1,5 +1,7 @@
 "use client"
 
+import { useMyOrganization } from "@/hooks/use-my-organization"
+import { IntercoBadge } from "@/components/organization-option"
 import { useState, useEffect, useMemo } from "react"
 import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
@@ -14,6 +16,7 @@ import type { Delivery } from "@/types/database"
 
 export default function DeliveriesListPage() {
   const router = useRouter()
+  const { isInterco } = useMyOrganization()
   const { selectedOrgId } = useOrganizationSelection()
   const { contacts } = useContactsStore()
   const [search, setSearch] = useState("")
@@ -79,6 +82,7 @@ export default function DeliveriesListPage() {
                       <button onClick={() => router.push(`/dashboard/deliveries/${d.id}`)} className="underline hover:no-underline">
                         {d.number}
                       </button>
+                      {isInterco(d) && <IntercoBadge />}
                     </td>
                     <td className="p-3">{d.date}</td>
                     <td className="p-3">{contactById.get(d.counterparty_id)?.company_name || "N/A"}</td>

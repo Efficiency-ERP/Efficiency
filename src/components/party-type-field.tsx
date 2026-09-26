@@ -9,6 +9,17 @@ export const STANDARD_PARTY_TYPES = ["customer", "supplier", "both"] as const
 
 const OTHER_SENTINEL = "__other__"
 
+// The standard types are stored in English; a custom type is shown as typed.
+const PARTY_TYPE_LABELS: Record<string, string> = {
+  customer: "Client",
+  supplier: "Fournisseur",
+  both: "Client et fournisseur",
+}
+
+export function partyTypeLabel(type: string): string {
+  return PARTY_TYPE_LABELS[type] ?? type
+}
+
 export function partyTypeSuggestions(contacts: Contact[]): string[] {
   const standard: readonly string[] = STANDARD_PARTY_TYPES
   const custom = new Set(

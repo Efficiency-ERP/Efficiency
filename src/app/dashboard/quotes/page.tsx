@@ -1,5 +1,7 @@
 "use client"
 
+import { useMyOrganization } from "@/hooks/use-my-organization"
+import { IntercoBadge } from "@/components/organization-option"
 import { useState, useEffect, useMemo } from "react"
 import { useOrganizationSelection } from "@/contexts/organization-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,6 +19,7 @@ import type { Quote, InvoiceTotals } from "@/types/database"
 
 export default function AllQuotesPage() {
   const router = useRouter()
+  const { isInterco } = useMyOrganization()
   const { selectedOrgId } = useOrganizationSelection()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -107,6 +110,7 @@ export default function AllQuotesPage() {
                         <button onClick={() => router.push(`/dashboard/quotes/${q.id}`)} className="underline hover:no-underline">
                           {q.number}
                         </button>
+                        {isInterco(q) && <IntercoBadge />}
                       </td>
                       <td className="p-3">{q.date}</td>
                       <td className="p-3"><Badge variant={statusVariant(q.status || "draft")}>{quoteStatusLabel(q.status)}</Badge></td>

@@ -1,5 +1,6 @@
 "use client"
 
+import { partyTypeLabel } from "@/components/party-type-field"
 import { use } from "react"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,9 +35,8 @@ export default function ContactSummaryPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-bold">{contact.company_name}</h1>
           <div className="flex gap-2 mt-2">
             <Badge variant={contact.party_type === "customer" ? "default" : contact.party_type === "supplier" ? "secondary" : "outline"}>
-              {contact.party_type}
+              {partyTypeLabel(contact.party_type)}
             </Badge>
-            {contact.is_internal_org && <Badge variant="secondary">Interne</Badge>}
           </div>
         </div>
         <div className="flex gap-2">

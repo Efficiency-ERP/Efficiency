@@ -81,7 +81,7 @@ export default function CreateDeliveryPage() {
     } catch { alert("Échec de la création du bon de livraison") } finally { setLoading(false) }
   }
 
-  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyOrganization)
+  const filteredContacts = sortMyOrganizationsFirst(contacts.filter((c) => c.internal_organization_id !== organizationId && c.party_type !== "supplier"), isContactMyOrganization)
   const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
   const pageTitle = sourceLabel ? `Confirmer la livraison — depuis ${sourceLabel}` : "Créer un bon de livraison (BL)"
 

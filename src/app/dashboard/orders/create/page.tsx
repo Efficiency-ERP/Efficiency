@@ -53,7 +53,7 @@ export default function CreateOrderPage() {
   }
 
   const filteredContacts = sortMyOrganizationsFirst(
-    contacts.filter((c) => orderType === "supplier" ? c.party_type !== "customer" : c.party_type !== "supplier"),
+    contacts.filter((c) => c.internal_organization_id !== organizationId && (orderType === "supplier" ? c.party_type !== "customer" : c.party_type !== "supplier")),
     isContactMyOrganization
   )
   const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
