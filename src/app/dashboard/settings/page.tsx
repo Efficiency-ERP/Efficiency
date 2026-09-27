@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useUser } from "@/contexts/user-context"
 import { useActionLog } from "@/hooks/use-action-log"
 import { useNavigation } from "@/contexts/navigation-context"
@@ -27,7 +28,7 @@ export default function SettingsPage() {
   const effectiveOrder = applySidebarOrder(reorderableItems, prefs.order)
   const effectiveUrls = effectiveOrder.map((i) => i.url)
 
-  if (loading) return <div className="text-muted-foreground">Loading settings...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement des paramètres...</div>
 
   const handleSaveProfile = async () => {
     setSaving(true)
@@ -40,25 +41,25 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
-      {saved && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">Saved successfully</div>}
+      <h1 className="text-2xl font-bold">Paramètres</h1>
+      {saved && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">Enregistré avec succès</div>}
       <Card>
-        <CardHeader><CardTitle>Profile Settings</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Paramètres du profil</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-2"><Label>Name</Label><Input value={userName} onChange={(e) => setUserName(e.target.value)} /></div>
+          <div className="grid gap-2"><Label>Nom</Label><Input value={userName} onChange={(e) => setUserName(e.target.value)} /></div>
           <div className="grid gap-2"><Label>Email</Label><Input value={user.email} readOnly disabled /></div>
           <div className="flex gap-2">
-            <Button onClick={handleSaveProfile} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
-            <Button variant="outline" onClick={() => setUserName(user.name)}>Reset</Button>
+            <Button onClick={handleSaveProfile} disabled={saving}>{saving ? "Enregistrement..." : "Enregistrer"}</Button>
+            <Button variant="outline" onClick={() => setUserName(user.name)}>Réinitialiser</Button>
           </div>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Sidebar</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Barre latérale</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">Reorder or hide pages in your sidebar. Saved on this device only.</p>
+          <p className="text-sm text-muted-foreground">Réorganisez ou masquez les pages de votre barre latérale. Enregistré sur cet appareil uniquement.</p>
           {!sidebarPrefsLoaded ? (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <p className="text-sm text-muted-foreground">Chargement...</p>
           ) : (
             <div className="space-y-2">
               {effectiveOrder.map((item, i) => {
@@ -77,28 +78,36 @@ export default function SettingsPage() {
                         <ChevronDown className="h-4 w-4" />
                       </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => toggleHidden(item.url)}>
-                        {isHidden ? "Show" : "Hide"}
+                        {isHidden ? "Afficher" : "Masquer"}
                       </Button>
                     </div>
                   </div>
                 )
               })}
-              <Button type="button" variant="outline" size="sm" onClick={resetSidebarPrefs}>Reset to default</Button>
+              <Button type="button" variant="outline" size="sm" onClick={resetSidebarPrefs}>Réinitialiser par défaut</Button>
             </div>
           )}
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>My Organizations</CardTitle></CardHeader>
-        <CardContent>
+        <CardHeader><CardTitle>Mes organisations</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Identité imprimée sur vos documents : logo, matricule fiscal, adresse et coordonnées bancaires.
+          </p>
           {organizations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No organizations assigned. Contact an admin.</p>
+            <p className="text-sm text-muted-foreground">Aucune organisation attribuée. Contactez un administrateur.</p>
           ) : (
             <ul className="space-y-2">
               {organizations.map((org) => (
-                <li key={org.id} className="flex items-center justify-between text-sm">
+                <li key={org.id} className="flex items-center justify-between gap-2 text-sm">
                   <span>{org.name}</span>
-                  <Badge variant="secondary">{org.id.slice(0, 8)}...</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{org.id.slice(0, 8)}...</Badge>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/organizations/${org.id}/edit`}>Modifier</Link>
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

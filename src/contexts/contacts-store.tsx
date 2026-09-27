@@ -13,6 +13,7 @@ interface ContactsStore {
   updateContact: (id: string, patch: Partial<Contact>) => void
   archiveContact: (id: string) => void
   addOrganization: (o: Organization) => void
+  updateOrganization: (id: string, patch: Partial<Organization>) => void
 }
 
 const ContactsContext = createContext<ContactsStore | undefined>(undefined)
@@ -53,6 +54,8 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     archiveContact: (id: string) =>
       setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, archived: true } : c))),
     addOrganization: (o: Organization) => setOrganizations((prev) => [o, ...prev]),
+    updateOrganization: (id: string, patch: Partial<Organization>) =>
+      setOrganizations((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o))),
   }), [contacts, organizations, loading, error])
 
   return <ContactsContext.Provider value={store}>{children}</ContactsContext.Provider>

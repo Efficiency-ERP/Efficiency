@@ -1,5 +1,6 @@
 "use client"
 
+import { partyTypeLabel } from "@/components/party-type-field"
 import { use } from "react"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,11 +17,11 @@ export default function ContactSummaryPage({ params }: { params: Promise<{ id: s
 
   const contact = contacts.find((c) => c.id === id)
 
-  if (loading) return <div className="text-muted-foreground">Loading...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement...</div>
   if (!contact) return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
       <h2 className="text-xl font-bold">Contact introuvable</h2>
-      <Button variant="outline" onClick={() => router.push("/dashboard/contacts")}>Back to contacts</Button>
+      <Button variant="outline" onClick={() => router.push("/dashboard/contacts")}>Retour aux contacts</Button>
     </div>
   )
 
@@ -34,31 +35,30 @@ export default function ContactSummaryPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-bold">{contact.company_name}</h1>
           <div className="flex gap-2 mt-2">
             <Badge variant={contact.party_type === "customer" ? "default" : contact.party_type === "supplier" ? "secondary" : "outline"}>
-              {contact.party_type}
+              {partyTypeLabel(contact.party_type)}
             </Badge>
-            {contact.is_internal_org && <Badge variant="secondary">Interne</Badge>}
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push(`/dashboard/contacts/${id}/edit`)}>Edit Contact</Button>
+          <Button variant="outline" onClick={() => router.push(`/dashboard/contacts/${id}/edit`)}>Modifier le contact</Button>
           {contact.party_type !== "supplier" && (
-            <Button onClick={() => router.push(`/dashboard/invoices/create/standard?selectedContact=${id}`)}>Create Invoice</Button>
+            <Button onClick={() => router.push(`/dashboard/invoices/create/standard?selectedContact=${id}`)}>Créer une facture</Button>
           )}
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Détails</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {contact.mf && <div><span className="text-muted-foreground">MF:</span> {contact.mf}</div>}
-            {contact.unique_id && <div><span className="text-muted-foreground">ID:</span> {contact.unique_id}</div>}
-            {contactInfo.phone && <div><span className="text-muted-foreground">Phone:</span> {contactInfo.phone}</div>}
-            {contactInfo.fax && <div><span className="text-muted-foreground">Fax:</span> {contactInfo.fax}</div>}
+            {contact.mf && <div><span className="text-muted-foreground">MF :</span> {contact.mf}</div>}
+            {contact.unique_id && <div><span className="text-muted-foreground">ID :</span> {contact.unique_id}</div>}
+            {contactInfo.phone && <div><span className="text-muted-foreground">Téléphone :</span> {contactInfo.phone}</div>}
+            {contactInfo.fax && <div><span className="text-muted-foreground">Fax :</span> {contactInfo.fax}</div>}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Address</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Adresse</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             {address.line1 && <div>{address.line1}</div>}
             <div>{address.city} {address.zipCode}</div>

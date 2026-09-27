@@ -1,7 +1,9 @@
 "use client"
 
+import { useMyOrganization } from "@/hooks/use-my-organization"
+import { IntercoBadge } from "@/components/organization-option"
 import { useState, useEffect, useMemo } from "react"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,7 +17,8 @@ import type { Issue } from "@/types/database"
 
 export default function IssuesListPage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { isInterco } = useMyOrganization()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts } = useContactsStore()
   const [search, setSearch] = useState("")
   const [issues, setIssues] = useState<Issue[]>([])
@@ -50,43 +53,51 @@ export default function IssuesListPage() {
     <div className="space-y-4">
       <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Issues</h1>
-        <Button onClick={() => router.push("/dashboard/issues/create")}>Create Issue</Button>
+        <h1 className="text-2xl font-bold">Bons d&apos;entrée et de sortie</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push("/dashboard/issues/create?direction=in")}>Créer un bon d&apos;entrée</Button>
+          <Button onClick={() => router.push("/dashboard/issues/create")}>Créer un bon de sortie</Button>
+        </div>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Loading issues...</div>
+        <div className="text-muted-foreground">Chargement des bons...</div>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-1 md:max-w-xs">
             <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{issues.length}</CardContent></Card>
           </div>
-          <Input placeholder="Search by number..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+          <Input placeholder="Rechercher par numéro..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3">Number</th>
+                  <th className="text-left p-3">Numéro</th>
+                  <th className="text-left p-3">Type</th>
                   <th className="text-left p-3">Date</th>
-                  <th className="text-left p-3">Counterparty</th>
-                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Tiers</th>
                   <th className="text-right p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredIssues.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">No issues found</td></tr>
+                  <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Aucun bon</td></tr>
                 ) : filteredIssues.map((i) => (
                   <tr key={i.id} className="border-b hover:bg-muted/30">
                     <td className="p-3">
                       <button onClick={() => router.push(`/dashboard/issues/${i.id}`)} className="underline hover:no-underline">
                         {i.number}
                       </button>
+                      {isInterco(i) && <IntercoBadge />}
+                    </td>
+                    <td className="p-3">
+                      <Badge variant={i.direction === "in" ? "default" : "secondary"}>
+                        {i.direction === "in" ? "Entrée" : "Sortie"}
+                      </Badge>
                     </td>
                     <td className="p-3">{i.date}</td>
-                    <td className="p-3">{contactById.get(i.counterparty_id)?.company_name || "N/A"}</td>
-                    <td className="p-3"><Badge variant={i.status === "final" ? "default" : "outline"}>{i.status}</Badge></td>
+                    <td className="p-3">{(i.counterparty_id && contactById.get(i.counterparty_id)?.company_name) || "—"}</td>
                     <td className="p-3 text-right">
-                      <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/issues/${i.id}`)}>View</Button>
+                      <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/issues/${i.id}`)}>Voir</Button>
                     </td>
                   </tr>
                 ))}

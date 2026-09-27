@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createIssue, getNextDocumentNumber } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
@@ -13,58 +13,81 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
+import type { IssueDirection } from "@/types/database"
+
+const NO_COUNTERPARTY = "__none__"
 
 export default function CreateIssuePage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  // One form for both: a bon de sortie takes goods out, a bon d'entrée is a
+  // correction that adds them back when a count turns out to be wrong.
+  const direction: IssueDirection = useSearchParams().get("direction") === "in" ? "in" : "out"
+  const isEntry = direction === "in"
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
-  const { articles } = useArticlesStore()
-  const { isContactMyPme, isArticleMyPme } = useMyPme()
+  const { articles, updateArticle: updateArticleInStore } = useArticlesStore()
+  const { isContactMyOrganization, isArticleMyOrganization } = useMyOrganization()
   const logAction = useActionLog("issues")
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
   const [counterpartyId, setCounterpartyId] = useState("")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [lines, setLines] = useState<Array<{ code: string; designation: string; unit: string | null; quantity: number }>>([])
+  const [lines, setLines] = useState<Array<{ article_id: string | null; code: string; designation: string; unit: string | null; quantity: number }>>([])
   const [loading, setLoading] = useState(false)
 
   const addFromArticle = (articleId: string) => {
     const article = articles.find((a) => a.id === articleId)
     if (!article) return
-    setLines([...lines, { code: article.code, designation: article.designation, unit: article.unit, quantity: 1 }])
+    setLines([...lines, { article_id: article.id, code: article.code, designation: article.designation, unit: article.unit, quantity: 1 }])
   }
-  const addFreeformLine = () => setLines([...lines, { code: "", designation: "", unit: null, quantity: 1 }])
+  const addFreeformLine = () => setLines([...lines, { article_id: null, code: "", designation: "", unit: null, quantity: 1 }])
   const updateLine = (i: number, patch: Partial<typeof lines[0]>) => { const u = [...lines]; u[i] = { ...u[i], ...patch }; setLines(u) }
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!organizationId) { alert("Select a PME"); return }
-    if (!counterpartyId) { alert("Select a counterparty"); return }
-    if (lines.length === 0) { alert("Add at least one line"); return }
+    if (!organizationId) { alert("Sélectionner une organisation"); return }
+    if (!isEntry && !counterpartyId) { alert("Sélectionner un tiers"); return }
+    if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
     setLoading(true)
     try {
-      const issue = await createIssue({ number: await getNextDocumentNumber(organizationId, "BS"), date, organization_id: organizationId, counterparty_id: counterpartyId, status: "draft" }, lines)
-      await logAction(`Created issue ${issue.number}`, issue.id, organizationId)
+      const { issue, updatedArticles } = await createIssue({
+        number: await getNextDocumentNumber(organizationId, isEntry ? "BE" : "BS"),
+        date,
+        organization_id: organizationId,
+        counterparty_id: counterpartyId || null,
+        status: "final",
+        direction,
+      }, lines)
+      for (const article of updatedArticles) updateArticleInStore(article.id, article)
+      await logAction(`Created ${isEntry ? "stock entry" : "issue"} ${issue.number}`, issue.id, organizationId)
       router.push("/dashboard/issues")
-    } catch { alert("Failed to create issue") } finally { setLoading(false) }
+    } catch { alert(isEntry ? "Échec de la création du bon d'entrée" : "Échec de la création du bon de sortie") } finally { setLoading(false) }
   }
 
-  const filteredContacts = sortMyPmeFirst(contacts.filter((c) => c.party_type !== "supplier"), isContactMyPme)
-  const sortedArticles = sortMyPmeFirst(articles, isArticleMyPme)
+  const filteredContacts = sortMyOrganizationsFirst(
+    (isEntry ? contacts : contacts.filter((c) => c.party_type !== "supplier")).filter((c) => c.internal_organization_id !== organizationId),
+    isContactMyOrganization
+  )
+  const sortedArticles = sortMyOrganizationsFirst(articles, isArticleMyOrganization)
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Create Issue (BS)</h1>
+      <h1 className="text-2xl font-bold">{isEntry ? "Créer un bon d\u2019entrée (BE)" : "Créer un bon de sortie (BS)"}</h1>
+      {isEntry && (
+        <p className="text-sm text-muted-foreground">
+          Correction de stock à la hausse : les quantités saisies sont ajoutées au stock des articles.
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Header</CardTitle></CardHeader>
+          <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>PME *</Label>
+                <Label>Organisation *</Label>
                 <Select value={organizationId} onValueChange={setOrganizationId}>
-                  <SelectTrigger><SelectValue placeholder="Select PME" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner une organisation" /></SelectTrigger>
                   <SelectContent>
                     {organizations.map((o) => (
                       <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
@@ -73,14 +96,18 @@ export default function CreateIssuePage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label>Counterparty *</Label>
-                <Select value={counterpartyId} onValueChange={setCounterpartyId}>
-                  <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
+                <Label>{isEntry ? "Provenance (facultatif)" : "Tiers *"}</Label>
+                <Select
+                  value={counterpartyId || (isEntry ? NO_COUNTERPARTY : "")}
+                  onValueChange={(v) => setCounterpartyId(v === NO_COUNTERPARTY ? "" : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Sélectionner un contact" /></SelectTrigger>
                   <SelectContent>
+                    {isEntry && <SelectItem value={NO_COUNTERPARTY}>Aucune</SelectItem>}
                     {filteredContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                      <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
+                        {isContactMyOrganization(c) && <OrganizationBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -88,37 +115,37 @@ export default function CreateIssuePage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label>Number</Label><Input value="Auto-generated on save" readOnly /></div>
+              <div className="grid gap-2"><Label>Numéro</Label><Input value="Généré à l'enregistrement" readOnly /></div>
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Lines</CardTitle>
+            <CardTitle>Lignes</CardTitle>
             <div className="flex gap-2">
               <Select onValueChange={addFromArticle}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Add from article" /></SelectTrigger>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Ajouter depuis un article" /></SelectTrigger>
                 <SelectContent>
                   {sortedArticles.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className={pmeItemClassName(isArticleMyPme(a))}>
+                    <SelectItem key={a.id} value={a.id} className={organizationItemClassName(isArticleMyOrganization(a))}>
                       {a.code} — {a.designation}
-                      {isArticleMyPme(a) && <PmeBadge />}
+                      {isArticleMyOrganization(a) && <OrganizationBadge />}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="button" variant="outline" onClick={addFreeformLine}>Freeform</Button>
+              <Button type="button" variant="outline" onClick={addFreeformLine}>Libre</Button>
             </div>
           </CardHeader>
           <CardContent>
-            {lines.length === 0 ? <div className="text-center py-8 text-muted-foreground">No lines</div> : (
-              <table className="w-full text-sm"><thead><tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Designation</th><th className="text-right p-2">Qty</th><th className="text-left p-2">Unit</th><th></th></tr></thead>
+            {lines.length === 0 ? <div className="text-center py-8 text-muted-foreground">Aucune ligne</div> : (
+              <table className="w-full text-sm"><thead><tr className="border-b"><th className="text-left p-2">Code</th><th className="text-left p-2">Désignation</th><th className="text-right p-2">Qté</th><th className="text-left p-2">Unité</th><th></th></tr></thead>
                 <tbody>{lines.map((line, i) => (<tr key={i} className="border-b"><td className="p-1"><Input value={line.code} onChange={(e) => updateLine(i, { code: e.target.value })} className="h-8" /></td><td className="p-1"><Input value={line.designation} onChange={(e) => updateLine(i, { designation: e.target.value })} className="h-8" /></td><td className="p-1"><Input type="number" value={line.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} className="h-8 w-20 text-right" /></td><td className="p-1"><Input value={line.unit || ""} onChange={(e) => updateLine(i, { unit: e.target.value || null })} className="h-8 w-20" /></td><td className="p-1"><Button type="button" variant="ghost" size="sm" onClick={() => removeLine(i)}>X</Button></td></tr>))}</tbody></table>
             )}
           </CardContent>
         </Card>
-        <div className="flex gap-4"><Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Issue"}</Button><Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button></div>
+        <div className="flex gap-4"><Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : isEntry ? "Enregistrer le bon d\u2019entrée" : "Enregistrer le bon de sortie"}</Button><Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button></div>
       </form>
     </div>
   )

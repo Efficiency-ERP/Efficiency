@@ -8,13 +8,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 export default function ProfilePage() {
   const { user, organizations, loading } = useUser()
 
-  if (loading) return <div className="text-muted-foreground">Loading profile...</div>
+  if (loading) return <div className="text-muted-foreground">Chargement du profil...</div>
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Profile</h1>
+      <h1 className="text-2xl font-bold">Profil</h1>
       <Card>
-        <CardHeader><CardTitle>User</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Utilisateur</CardTitle></CardHeader>
         <CardContent className="flex items-center gap-4">
           <Avatar className="h-16 w-16">
             <AvatarFallback>{user.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
@@ -28,7 +28,7 @@ export default function ProfilePage() {
       </Card>
       {organizations.length > 0 && (
         <Card>
-          <CardHeader><CardTitle>Organizations</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Organisations</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             {organizations.map((org) => (
               <div key={org.id} className="flex items-center justify-between">

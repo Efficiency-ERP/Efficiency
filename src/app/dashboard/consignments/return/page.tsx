@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useContactsStore } from "@/contexts/contacts-store"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { useActionLog } from "@/hooks/use-action-log"
 import { createConsignmentReturn, getConsignmentBalances } from "@/lib/supabase/invoices"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PmeBadge, pmeItemClassName, sortMyPmeFirst } from "@/components/pme-option"
+import { OrganizationBadge, organizationItemClassName, sortMyOrganizationsFirst } from "@/components/organization-option"
 import { formatTND } from "@/lib/utils"
 import { SectionTabs } from "@/components/section-tabs"
 import { SALES_TABS, PURCHASING_TABS } from "@/lib/section-tabs-config"
@@ -22,9 +22,9 @@ export default function CreateConsignmentReturnPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const side = searchParams.get("side") // "sale" | "purchase" | null
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { contacts, organizations } = useContactsStore()
-  const { isContactMyPme } = useMyPme()
+  const { isContactMyOrganization } = useMyOrganization()
   const logAction = useActionLog("consignments")
 
   const [organizationId, setOrganizationId] = useState(selectedOrgId !== "all" ? selectedOrgId : "")
@@ -61,10 +61,10 @@ export default function CreateConsignmentReturnPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!organizationId) { alert("Select an issuing organization"); return }
-    if (!counterpartyId) { alert("Select a counterparty"); return }
-    if (lines.length === 0) { alert("Add at least one line"); return }
-    if (lines.some((l) => !l.packaging_type.trim())) { alert("Every line needs a packaging type"); return }
+    if (!organizationId) { alert("Sélectionner l'organisation émettrice"); return }
+    if (!counterpartyId) { alert("Sélectionner un tiers"); return }
+    if (lines.length === 0) { alert("Ajoutez au moins une ligne"); return }
+    if (lines.some((l) => !l.packaging_type.trim())) { alert("Chaque ligne doit avoir un type d'emballage"); return }
 
     setLoading(true)
     try {
@@ -76,7 +76,7 @@ export default function CreateConsignmentReturnPage() {
       router.push(`/dashboard/consignments${side ? `?side=${side}` : ""}`)
     } catch (err) {
       console.error(err)
-      alert("Failed to record return")
+      alert("Échec de l'enregistrement du retour")
     } finally {
       setLoading(false)
     }
@@ -87,23 +87,23 @@ export default function CreateConsignmentReturnPage() {
     : side === "sale"
       ? contacts.filter((c) => c.party_type !== "supplier")
       : contacts
-  const sortedContacts = sortMyPmeFirst(scopedContacts, isContactMyPme)
+  const sortedContacts = sortMyOrganizationsFirst(scopedContacts, isContactMyOrganization)
   const total = lines.reduce((s, l) => s + l.quantity * l.deposit_value, 0)
 
   return (
     <div className="max-w-4xl space-y-6">
       {side === "sale" && <SectionTabs tabs={SALES_TABS} />}
       {side === "purchase" && <SectionTabs tabs={PURCHASING_TABS} />}
-      <h1 className="text-2xl font-bold">Record Consignment Return</h1>
+      <h1 className="text-2xl font-bold">Enregistrer un retour de consignation</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Header</CardTitle></CardHeader>
+          <CardHeader><CardTitle>En-tête</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>Issuing Organization *</Label>
+                <Label>Organisation émettrice *</Label>
                 <Select value={organizationId} onValueChange={setOrganizationId}>
-                  <SelectTrigger><SelectValue placeholder="Select issuing organization" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner l'organisation émettrice" /></SelectTrigger>
                   <SelectContent>
                     {organizations.map((o) => (
                       <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
@@ -112,14 +112,14 @@ export default function CreateConsignmentReturnPage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label>Counterparty *</Label>
+                <Label>Tiers *</Label>
                 <Select value={counterpartyId} onValueChange={setCounterpartyId}>
-                  <SelectTrigger><SelectValue placeholder="Select contact" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner un contact" /></SelectTrigger>
                   <SelectContent>
                     {sortedContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className={pmeItemClassName(isContactMyPme(c))}>
+                      <SelectItem key={c.id} value={c.id} className={organizationItemClassName(isContactMyOrganization(c))}>
                         {c.company_name}
-                        {isContactMyPme(c) && <PmeBadge />}
+                        {isContactMyOrganization(c) && <OrganizationBadge />}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -130,8 +130,8 @@ export default function CreateConsignmentReturnPage() {
               <div className="grid gap-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
               {counterpartyId && (
                 <div className="grid gap-2">
-                  <Label>Cash Flow</Label>
-                  <div className="text-sm py-2">{direction === "in" ? "In — they refund us" : "Out — we refund them"}</div>
+                  <Label>Trésorerie</Label>
+                  <div className="text-sm py-2">{direction === "in" ? "Entrée — ils nous remboursent" : "Sortie — nous les remboursons"}</div>
                 </div>
               )}
             </div>
@@ -140,16 +140,16 @@ export default function CreateConsignmentReturnPage() {
 
         {counterpartyId && (
           <Card>
-            <CardHeader><CardTitle>Outstanding for this counterparty</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Encours pour ce tiers</CardTitle></CardHeader>
             <CardContent>
               {loadingBalances ? (
-                <div className="text-muted-foreground text-sm">Loading...</div>
+                <div className="text-muted-foreground text-sm">Chargement...</div>
               ) : balances.length === 0 ? (
-                <div className="text-muted-foreground text-sm">Nothing outstanding on record for this counterparty.</div>
+                <div className="text-muted-foreground text-sm">Aucun encours enregistré pour ce tiers.</div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Outstanding Qty</th><th className="text-right p-2">Outstanding Value</th><th></th></tr>
+                    <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Qté en cours</th><th className="text-right p-2">Valeur en cours</th><th></th></tr>
                   </thead>
                   <tbody>
                     {balances.map((b) => (
@@ -157,7 +157,7 @@ export default function CreateConsignmentReturnPage() {
                         <td className="p-2">{b.packaging_type}</td>
                         <td className="p-2 text-right">{b.quantity_outstanding}</td>
                         <td className="p-2 text-right">{formatTND(b.deposit_outstanding)}</td>
-                        <td className="p-2 text-right"><Button type="button" size="sm" variant="outline" onClick={() => addFromBalance(b)}>Return all</Button></td>
+                        <td className="p-2 text-right"><Button type="button" size="sm" variant="outline" onClick={() => addFromBalance(b)}>Tout retourner</Button></td>
                       </tr>
                     ))}
                   </tbody>
@@ -169,14 +169,14 @@ export default function CreateConsignmentReturnPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Lines</CardTitle>
-            <Button type="button" variant="outline" onClick={addFreeformLine}>Add line</Button>
+            <CardTitle>Lignes</CardTitle>
+            <Button type="button" variant="outline" onClick={addFreeformLine}>Ajouter une ligne</Button>
           </CardHeader>
           <CardContent>
-            {lines.length === 0 ? <div className="text-center py-8 text-muted-foreground">No lines</div> : (
+            {lines.length === 0 ? <div className="text-center py-8 text-muted-foreground">Aucune ligne</div> : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Qty Returned</th><th className="text-right p-2">Deposit/Unit</th><th className="text-right p-2">Total</th><th></th></tr>
+                  <tr className="border-b"><th className="text-left p-2">Type</th><th className="text-right p-2">Qté retournée</th><th className="text-right p-2">Consigne/unité</th><th className="text-right p-2">Total</th><th></th></tr>
                 </thead>
                 <tbody>
                   {lines.map((line, i) => (
@@ -195,20 +195,20 @@ export default function CreateConsignmentReturnPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Totaux</CardTitle></CardHeader>
           <CardContent>
-            <div className="flex justify-between font-bold"><span>Refund Total:</span><span>{formatTND(total)}</span></div>
+            <div className="flex justify-between font-bold"><span>Total remboursé :</span><span>{formatTND(total)}</span></div>
           </CardContent>
         </Card>
 
         <div className="grid gap-2">
           <Label>Notes</Label>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes..." />
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (facultatif)..." />
         </div>
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Return"}</Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="submit" disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer le retour"}</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>Annuler</Button>
         </div>
       </form>
     </div>

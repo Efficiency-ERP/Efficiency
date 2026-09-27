@@ -59,7 +59,7 @@ export function NavUser() {
               <AvatarFallback className="rounded-lg">...</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">Loading...</span>
+              <span className="truncate font-medium">Chargement...</span>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -110,7 +110,7 @@ export function NavUser() {
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/profile" className="flex items-center gap-2">
                   <UserCircle />
-                  Profile
+                  Profil
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -122,14 +122,14 @@ export function NavUser() {
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/settings" className="flex items-center gap-2">
                   <Settings />
-                  Settings
+                  Paramètres
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
               <LogOut />
-              Log out
+              Se déconnecter
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -64,7 +64,7 @@ export function DocumentAttachments({ documentType, documentId, organizationId }
     if (files.length === 0 || !user?.id) return
 
     const oversized = files.some((f) => f.size > MAX_FILE_SIZE)
-    if (oversized) { alert("Files must be under 10MB."); return }
+    if (oversized) { alert("Les fichiers doivent faire moins de 10 Mo."); return }
 
     setUploading(true)
     try {
@@ -74,7 +74,7 @@ export function DocumentAttachments({ documentType, documentId, organizationId }
       await load()
     } catch (err) {
       console.error(err)
-      alert("Failed to upload file")
+      alert("Échec du téléversement du fichier")
     } finally {
       setUploading(false)
     }
@@ -87,7 +87,7 @@ export function DocumentAttachments({ documentType, documentId, organizationId }
       window.open(url, "_blank")
     } catch (err) {
       console.error(err)
-      alert("Failed to open file")
+      alert("Échec de l'ouverture du fichier")
     } finally {
       setOpeningId(null)
     }
@@ -99,13 +99,13 @@ export function DocumentAttachments({ documentType, documentId, organizationId }
       await load()
     } catch (err) {
       console.error(err)
-      alert("Failed to delete file")
+      alert("Échec de la suppression du fichier")
     }
   }
 
   const renderList = (items: DocumentAttachment[]) => (
     items.length === 0 ? (
-      <div className="text-sm text-muted-foreground">None</div>
+      <div className="text-sm text-muted-foreground">Aucun</div>
     ) : (
       <div className="space-y-1">
         {items.map((a) => (
@@ -117,7 +117,7 @@ export function DocumentAttachments({ documentType, documentId, organizationId }
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <Button type="button" variant="ghost" size="sm" disabled={openingId === a.id} onClick={() => handleOpen(a)}>
-                {openingId === a.id ? <Loader2 className="size-3 animate-spin" /> : "Open"}
+                {openingId === a.id ? <Loader2 className="size-3 animate-spin" /> : "Ouvrir"}
               </Button>
               <Button type="button" variant="ghost" size="icon" className="size-6" onClick={() => handleDelete(a)}>
                 <X className="size-3" />
@@ -136,16 +136,16 @@ export function DocumentAttachments({ documentType, documentId, organizationId }
 
   return (
     <Card>
-      <CardHeader><CardTitle>Attachments</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Pièces jointes</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-end gap-2">
           <div className="grid gap-2">
-            <Label>Kind</Label>
+            <Label>Type</Label>
             <Select value={kind} onValueChange={(v) => setKind(v as AttachmentKind)}>
               <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="pre_invoice">Pre-invoice</SelectItem>
-                <SelectItem value="post_invoice">Post-invoice</SelectItem>
+                <SelectItem value="pre_invoice">Pré-facture</SelectItem>
+                <SelectItem value="post_invoice">Post-facture</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -155,14 +155,14 @@ export function DocumentAttachments({ documentType, documentId, organizationId }
           </Button>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
         </div>
-        {!user?.id && <div className="text-sm text-muted-foreground">Log in to upload files.</div>}
+        {!user?.id && <div className="text-sm text-muted-foreground">Connectez-vous pour téléverser des fichiers.</div>}
 
         <div className="space-y-2">
-          <Label className="text-muted-foreground">Pre-invoice</Label>
+          <Label className="text-muted-foreground">Pré-facture</Label>
           {renderList(preInvoice)}
         </div>
         <div className="space-y-2">
-          <Label className="text-muted-foreground">Post-invoice</Label>
+          <Label className="text-muted-foreground">Post-facture</Label>
           {renderList(postInvoice)}
         </div>
       </CardContent>

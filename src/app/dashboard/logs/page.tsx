@@ -8,20 +8,20 @@ export default function LogsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Logs</h1>
+      <h1 className="text-2xl font-bold">Journaux</h1>
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>User</TableHead>
+              <TableHead>Heure</TableHead>
+              <TableHead>Utilisateur</TableHead>
               <TableHead>Message</TableHead>
               <TableHead>Module</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {logs.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No logs yet</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Aucun journal</TableCell></TableRow>
             ) : (
               logs.map((log) => (
                 <TableRow key={log.id}>

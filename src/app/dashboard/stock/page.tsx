@@ -1,30 +1,42 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { usePMESelection } from "@/contexts/pme-context"
+import { useOrganizationSelection } from "@/contexts/organization-context"
 import { useArticlesStore } from "@/contexts/articles-store"
 import { getStockMovements } from "@/lib/supabase/stock"
-import { getDeliveries } from "@/lib/supabase/invoices"
+import { getDeliveries, getInvoices, getIssues } from "@/lib/supabase/invoices"
 import { DataTable } from "@/components/data-table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
-import type { StockMovement, Delivery } from "@/types/database"
+import type { StockMovement, StockMovementSourceType } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
 import { SectionTabs } from "@/components/section-tabs"
 import { ARTICLES_TABS } from "@/lib/section-tabs-config"
 
-const SOURCE_ROUTES: Record<string, string> = {
+// Where each kind of movement links to. An adjustment is a manual correction
+// on the article form and has no document behind it.
+const SOURCE_ROUTES: Partial<Record<StockMovementSourceType, string>> = {
+  invoice: "/dashboard/invoices",
+  issue: "/dashboard/issues",
   delivery: "/dashboard/deliveries",
+}
+
+const SOURCE_LABELS: Record<StockMovementSourceType, string> = {
+  invoice: "Facture",
+  issue: "Bon de sortie",
+  delivery: "Bon de livraison",
+  adjustment: "Ajustement",
 }
 
 export default function StockMovementsPage() {
   const router = useRouter()
-  const { selectedOrgId } = usePMESelection()
+  const { selectedOrgId } = useOrganizationSelection()
   const { articles } = useArticlesStore()
   const [movements, setMovements] = useState<StockMovement[]>([])
-  const [deliveries, setDeliveries] = useState<Delivery[]>([])
+  // Document numbers by id, across every table a movement can point at.
+  const [numberById, setNumberById] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [directionFilter, setDirectionFilter] = useState<string>("all")
@@ -34,9 +46,14 @@ export default function StockMovementsPage() {
       setLoading(true)
       try {
         const orgId = selectedOrgId !== "all" ? selectedOrgId : undefined
-        const [moves, dels] = await Promise.all([getStockMovements(orgId), getDeliveries(orgId)])
+        const [moves, invoices, issues, deliveries] = await Promise.all([
+          getStockMovements(orgId),
+          getInvoices(orgId),
+          getIssues(orgId),
+          getDeliveries(orgId),
+        ])
         setMovements(moves)
-        setDeliveries(dels)
+        setNumberById(new Map([...invoices, ...issues, ...deliveries].map((d) => [d.id, d.number])))
       } catch (err) {
         console.error("Failed to load stock movements:", err)
       } finally {
@@ -47,7 +64,6 @@ export default function StockMovementsPage() {
   }, [selectedOrgId])
 
   const articleById = useMemo(() => new Map(articles.map((a) => [a.id, a])), [articles])
-  const deliveryById = useMemo(() => new Map(deliveries.map((d) => [d.id, d])), [deliveries])
 
   const filteredMovements = useMemo(() => {
     return movements.filter((m) => {
@@ -76,21 +92,21 @@ export default function StockMovementsPage() {
           <button onClick={() => router.push(`/dashboard/articles/${article.id}`)} className="underline hover:no-underline">
             {article.code} — {article.designation}
           </button>
-        ) : "Unknown article"
+        ) : "Article inconnu"
       },
     },
     {
       accessorKey: "direction",
-      header: "Direction",
+      header: "Sens",
       cell: ({ row }) => (
         <Badge variant={row.original.direction === "in" ? "default" : "secondary"}>
-          {row.original.direction === "in" ? "In" : "Out"}
+          {row.original.direction === "in" ? "Entrée" : "Sortie"}
         </Badge>
       ),
     },
     {
       accessorKey: "quantity_delta",
-      header: "Quantity",
+      header: "Quantité",
       cell: ({ row }) => {
         const qty = row.original.quantity_delta
         return <span className={qty < 0 ? "text-destructive" : "text-emerald-600"}>{qty > 0 ? `+${qty}` : qty}</span>
@@ -100,19 +116,22 @@ export default function StockMovementsPage() {
       accessorKey: "source_type",
       header: "Source",
       cell: ({ row }) => {
-        const { source_type, source_document_id } = row.original
-        if (source_type === "delivery" && source_document_id) {
-          const delivery = deliveryById.get(source_document_id)
+        const { source_type, source_document_id, source_issue_id, direction } = row.original
+        // Bons d'entrée and de sortie share a source type; the direction tells them apart.
+        const label = source_type === "issue" && direction === "in"
+          ? "Bon d\u2019entrée"
+          : SOURCE_LABELS[source_type] ?? source_type
+        const sourceId = source_issue_id ?? source_document_id
+        const route = SOURCE_ROUTES[source_type]
+        if (sourceId && route) {
+          const number = numberById.get(sourceId)
           return (
-            <button
-              onClick={() => router.push(`${SOURCE_ROUTES[source_type]}/${source_document_id}`)}
-              className="underline hover:no-underline"
-            >
-              {delivery ? delivery.number : "Delivery"}
+            <button onClick={() => router.push(`${route}/${sourceId}`)} className="underline hover:no-underline">
+              {number ? `${label} ${number}` : label}
             </button>
           )
         }
-        return <span className="capitalize">{source_type}</span>
+        return <span>{label}</span>
       },
     },
   ]
@@ -121,20 +140,20 @@ export default function StockMovementsPage() {
     <div className="space-y-4">
       <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Stock Movements</h1>
+        <h1 className="text-2xl font-bold">Mouvements de stock</h1>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Loading stock movements...</div>
+        <div className="text-muted-foreground">Chargement des mouvements de stock...</div>
       ) : (
         <>
           <div className="flex gap-4">
-            <Input placeholder="Search by article code or designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <Input placeholder="Rechercher par code article ou désignation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
             <Select value={directionFilter} onValueChange={setDirectionFilter}>
-              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Directions" /></SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Tous les sens" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Directions</SelectItem>
-                <SelectItem value="in">In</SelectItem>
-                <SelectItem value="out">Out</SelectItem>
+                <SelectItem value="all">Tous les sens</SelectItem>
+                <SelectItem value="in">Entrée</SelectItem>
+                <SelectItem value="out">Sortie</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -9,6 +9,17 @@ export const STANDARD_PARTY_TYPES = ["customer", "supplier", "both"] as const
 
 const OTHER_SENTINEL = "__other__"
 
+// The standard types are stored in English; a custom type is shown as typed.
+const PARTY_TYPE_LABELS: Record<string, string> = {
+  customer: "Client",
+  supplier: "Fournisseur",
+  both: "Client et fournisseur",
+}
+
+export function partyTypeLabel(type: string): string {
+  return PARTY_TYPE_LABELS[type] ?? type
+}
+
 export function partyTypeSuggestions(contacts: Contact[]): string[] {
   const standard: readonly string[] = STANDARD_PARTY_TYPES
   const custom = new Set(
@@ -35,21 +46,21 @@ export function PartyTypeField({ value, onChange, contacts }: { value: string; o
   return (
     <div className="space-y-2">
       <Select value={customMode ? OTHER_SENTINEL : value} onValueChange={handleSelect}>
-        <SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger>
+        <SelectTrigger><SelectValue placeholder="Sélectionner un type" /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="customer">Customer</SelectItem>
-          <SelectItem value="supplier">Supplier</SelectItem>
-          <SelectItem value="both">Both</SelectItem>
+          <SelectItem value="customer">Client</SelectItem>
+          <SelectItem value="supplier">Fournisseur</SelectItem>
+          <SelectItem value="both">Les deux</SelectItem>
           {suggestions.length > 0 && <SelectSeparator />}
           {suggestions.map((s) => (
             <SelectItem key={s} value={s}>{s}</SelectItem>
           ))}
           <SelectSeparator />
-          <SelectItem value={OTHER_SENTINEL}>Other...</SelectItem>
+          <SelectItem value={OTHER_SENTINEL}>Autre...</SelectItem>
         </SelectContent>
       </Select>
       {customMode && (
-        <Input autoFocus placeholder="Enter a new party type" value={value} onChange={(e) => onChange(e.target.value)} />
+        <Input autoFocus placeholder="Saisir un nouveau type de tiers" value={value} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   )

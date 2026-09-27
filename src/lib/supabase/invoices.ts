@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/client"
-import { recordDeliveryStockMovements } from "@/lib/supabase/stock"
+import { applyStockMovements, invoiceStockSign, issueStockSign } from "@/lib/supabase/stock"
 import { castJson } from "@/lib/utils"
 import type {
   Article, Invoice, InvoiceType, InvoiceDirection, InvoiceLine, ConsignmentLine, ConsignmentBalance,
   ConsignmentPackaging, Consignment, Delivery, DeliveryLine, Order, OrderLine, OrderType, Issue, IssueLine,
-  Quote, QuoteLine, QuoteStatus, DocumentStatus, TaxCharge, InvoiceTotals, DocumentAttributes, CounterpartyKind, PaymentMethod,
+  Quote, QuoteLine, QuoteStatus, DocumentStatus, TaxCharge, DocumentCharge, InvoiceTotals, DocumentAttributes, CounterpartyKind, PaymentMethod, Json,
 } from "@/types/database"
 
 // ============================================
@@ -167,6 +167,7 @@ type InvoiceInput = {
   source_delivery_id?: string | null
   original_invoice_id?: string | null
   notes?: string | null
+  charges?: DocumentCharge[]
 }
 
 export async function getInvoices(organizationId?: string): Promise<Invoice[]> {
@@ -302,10 +303,11 @@ export async function createInvoice(
     transfer_price?: number
     consignments?: ConsignmentCharge[]
   })[]
-): Promise<Invoice> {
+): Promise<{ invoice: Invoice; updatedArticles: Article[] }> {
   const supabase = createClient()
 
-  const totals = computeInvoiceTotals(lines.map((l) => ({ ...l, tax_charges: l.tax_charges as unknown as TaxCharge[] })))
+  const documentCharges = invoice.charges || []
+  const totals = computeInvoiceTotals(lines.map((l) => ({ ...l, tax_charges: l.tax_charges as unknown as TaxCharge[] })), documentCharges)
 
   const flow: "sale" | "purchase" =
     invoice.source_quote_id ? "sale" : invoice.source_order_id ? "purchase" : invoice.direction === "in" ? "sale" : "purchase"
@@ -331,6 +333,9 @@ export async function createInvoice(
       attributes,
       notes: invoice.notes,
       totals,
+      // totals.chargesByKey is a display rollup; the structured array is kept
+      // alongside it because kind/rate/amount are what an XML serializer needs.
+      charges: documentCharges as unknown as Json,
     })
     .select()
     .single()
@@ -365,7 +370,14 @@ export async function createInvoice(
     }
   }
 
-  return inv
+  // The invoice is the stock event — a delivery note is paperwork and moves
+  // nothing. invoiceStockSign decides the direction from flow and subtype.
+  const sign = invoiceStockSign(flow, invoice.type)
+  const updatedArticles = sign === 0
+    ? []
+    : await applyStockMovements({ type: "invoice", documentId: inv.id }, inv.date, lines, sign)
+
+  return { invoice: inv, updatedArticles }
 }
 
 // Picks which packaging container(s) to charge a deposit for, given a
@@ -507,10 +519,13 @@ export async function getDeliveryLines(deliveryId: string): Promise<DeliveryLine
 
 type DeliveryLineInput = Pick<DeliveryLine, "article_id" | "code" | "designation" | "unit" | "quantity">
 
+// A delivery note records the transport and moves no stock: the invoice or
+// the bon de sortie is the stock event, and a delivery is not required for
+// goods to leave.
 export async function createDelivery(
   delivery: DeliveryInput,
   lines: DeliveryLineInput[]
-): Promise<{ delivery: Delivery; updatedArticles: Article[] }> {
+): Promise<Delivery> {
   const supabase = createClient()
 
   const attributes: DocumentAttributes = {
@@ -527,7 +542,7 @@ export async function createDelivery(
       date: delivery.date,
       organization_id: delivery.organization_id,
       counterparty_id: delivery.counterparty_id,
-      status: delivery.status || "draft",
+      status: delivery.status || "final",
       source_document_id: delivery.source_quote_id,
       attributes,
     })
@@ -544,9 +559,7 @@ export async function createDelivery(
     if (linesError) throw linesError
   }
 
-  const updatedArticles = await recordDeliveryStockMovements(del.organization_id, del.id, del.date, lines)
-
-  return { delivery: del, updatedArticles }
+  return del
 }
 
 // ============================================
@@ -672,7 +685,7 @@ export async function markOrderFinal(orderId: string): Promise<Order> {
 
 // ============================================
 // ISSUES — not part of the documents merge (stock-only, never touches
-// money), so this stays exactly as before, querying its own tables.
+// money), so they keep their own tables.
 // ============================================
 
 export async function getIssues(organizationId?: string): Promise<Issue[]> {
@@ -721,7 +734,7 @@ type IssueLineInput = Pick<IssueLine, "code" | "designation" | "unit" | "quantit
 export async function createIssue(
   issue: Omit<Issue, "id" | "created_at">,
   lines: IssueLineInput[]
-): Promise<Issue> {
+): Promise<{ issue: Issue; updatedArticles: Article[] }> {
   const supabase = createClient()
 
   const { data: iss, error: issError } = await supabase
@@ -740,20 +753,29 @@ export async function createIssue(
     if (linesError) throw linesError
   }
 
-  return iss
+  // Neither a bon de sortie nor a bon d'entrée has a draft stage: each is
+  // final — and moves stock — the moment it is written.
+  const updatedArticles = await applyStockMovements(
+    { type: "issue", issueId: iss.id }, iss.date, lines, issueStockSign(iss.direction)
+  )
+
+  return { issue: iss, updatedArticles }
 }
 
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
 
-export function computeInvoiceTotals(lines: {
-  unit_price_excl_tax: number
-  discount_percent?: number | null
-  quantity: number
-  transfer_price?: number | null
-  tax_charges: TaxCharge[]
-}[]) {
+export function computeInvoiceTotals(
+  lines: {
+    unit_price_excl_tax: number
+    discount_percent?: number | null
+    quantity: number
+    transfer_price?: number | null
+    tax_charges: TaxCharge[]
+  }[],
+  documentCharges: DocumentCharge[] = []
+) {
   let subtotalExclTax = 0
   const chargesByKey: Record<string, number> = {}
   let totalInclTax = 0
@@ -776,6 +798,35 @@ export function computeInvoiceTotals(lines: {
       lineTotal += amount
     }
     totalInclTax += lineTotal
+  }
+
+  // Document charges fold into the SAME chargesByKey rollup as line charges, so
+  // the stored total and every printed breakdown are computed once and can
+  // never disagree. A percent charge keys like a line charge; a fixed charge
+  // keys as its bare label, which parseStoredCharges in the print view model
+  // already reads back as "no rate" — so a timbre fiscal prints without a
+  // percentage without the PDF needing to know it exists.
+  // Percent charges are evaluated against the totals BEFORE any document charge
+  // is applied, so reordering rows in the editor cannot change the result.
+  const documentBaseExclTax = subtotalExclTax
+  const documentBaseInclTax = totalInclTax
+
+  for (const charge of documentCharges) {
+    let amount: number
+    let key: string
+
+    if (charge.kind === "percent") {
+      const rate = charge.rate || 0
+      const base = charge.base === "ttc" ? documentBaseInclTax : documentBaseExclTax
+      amount = (base * rate) / 100
+      key = `${charge.label} ${rate}%`
+    } else {
+      amount = charge.amount || 0
+      key = charge.label
+    }
+
+    chargesByKey[key] = (chargesByKey[key] || 0) + amount
+    totalInclTax += amount
   }
 
   return { subtotal_excl_tax: subtotalExclTax, chargesByKey, total_incl_tax: totalInclTax }

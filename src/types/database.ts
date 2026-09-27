@@ -28,6 +28,22 @@ export interface TaxCharge {
   base: TaxBase
 }
 
+// Line charges are per-line and percentage-only. A charge that applies once to
+// the whole document — Tunisia's timbre fiscal above all — is neither, so it
+// gets its own shape. The base deliberately isn't TaxBase: "transfer" and
+// "cumulative" are per-line concepts with no document-level meaning. A negative
+// rate is legal and is how a retenue a la source is expressed.
+export type DocumentChargeBase = "ht" | "ttc"
+
+export interface DocumentCharge {
+  id: string
+  label: string
+  kind: "percent" | "fixed"
+  rate?: number
+  amount?: number
+  base?: DocumentChargeBase
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -57,6 +73,9 @@ export interface Database {
           address: Json
           contact: Json
           conditions_de_vente: string | null
+          logo_path: string | null
+          bank_details: Json | null
+          stamp_duty: number | null
           created_at: string
         }
         Insert: {
@@ -68,6 +87,9 @@ export interface Database {
           address?: Json
           contact?: Json
           conditions_de_vente?: string | null
+          logo_path?: string | null
+          bank_details?: Json | null
+          stamp_duty?: number | null
           created_at?: string
         }
         Update: {
@@ -79,6 +101,9 @@ export interface Database {
           address?: Json
           contact?: Json
           conditions_de_vente?: string | null
+          logo_path?: string | null
+          bank_details?: Json | null
+          stamp_duty?: number | null
         }
       }
       contacts: {
@@ -185,6 +210,7 @@ export interface Database {
           direction: InvoiceDirection | null
           status: string | null
           totals: Json
+          charges: Json
           notes: string | null
           source_document_id: string | null
           attributes: Json
@@ -203,6 +229,7 @@ export interface Database {
           direction?: InvoiceDirection | null
           status?: string | null
           totals?: Json
+          charges?: Json
           notes?: string | null
           source_document_id?: string | null
           attributes?: Json
@@ -221,6 +248,7 @@ export interface Database {
           direction?: InvoiceDirection | null
           status?: string | null
           totals?: Json
+          charges?: Json
           notes?: string | null
           source_document_id?: string | null
           attributes?: Json
@@ -320,8 +348,9 @@ export interface Database {
           number: string
           date: string
           organization_id: string
-          counterparty_id: string
+          counterparty_id: string | null
           status: DocumentStatus
+          direction: IssueDirection
           created_at: string
         }
         Insert: {
@@ -329,8 +358,9 @@ export interface Database {
           number: string
           date?: string
           organization_id: string
-          counterparty_id: string
+          counterparty_id?: string | null
           status?: DocumentStatus
+          direction?: IssueDirection
           created_at?: string
         }
         Update: {
@@ -338,8 +368,9 @@ export interface Database {
           number?: string
           date?: string
           organization_id?: string
-          counterparty_id?: string
+          counterparty_id?: string | null
           status?: DocumentStatus
+          direction?: IssueDirection
         }
       }
       issue_lines: {
@@ -453,6 +484,7 @@ export interface Database {
           direction: StockMovementDirection
           source_type: StockMovementSourceType
           source_document_id: string | null
+          source_issue_id: string | null
           date: string
           created_at: string
         }
@@ -464,6 +496,7 @@ export interface Database {
           direction: StockMovementDirection
           source_type: StockMovementSourceType
           source_document_id?: string | null
+          source_issue_id?: string | null
           date?: string
           created_at?: string
         }
@@ -475,6 +508,7 @@ export interface Database {
           direction?: StockMovementDirection
           source_type?: StockMovementSourceType
           source_document_id?: string | null
+          source_issue_id?: string | null
           date?: string
         }
       }
@@ -483,7 +517,11 @@ export interface Database {
 }
 
 export type StockMovementDirection = "in" | "out"
-export type StockMovementSourceType = "delivery"
+// A bon de sortie ("out") or a bon d'entrée ("in"): both live in `issues`.
+export type IssueDirection = "in" | "out"
+// "delivery" is kept only so rows written before migration 19 still type;
+// a delivery note no longer moves stock.
+export type StockMovementSourceType = "delivery" | "invoice" | "issue" | "adjustment"
 
 // Convenience types
 export type Tenant = Database["public"]["Tables"]["tenants"]["Row"]
@@ -534,6 +572,15 @@ export interface Address {
 export interface ContactInfo {
   phone: string | null
   fax: string | null
+}
+
+// Shown on invoices so a customer paying by virement has the account to
+// pay into. All optional — an org that doesn't take transfers leaves it empty.
+export interface BankDetails {
+  bank_name?: string | null
+  rib?: string | null
+  iban?: string | null
+  swift?: string | null
 }
 
 export interface Stock {

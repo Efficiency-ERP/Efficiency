@@ -2,14 +2,14 @@
 
 import { useState, useMemo } from "react"
 import { useArticlesStore } from "@/contexts/articles-store"
-import { usePMESelection } from "@/contexts/pme-context"
-import { useMyPme } from "@/hooks/use-my-pme"
+import { useOrganizationSelection } from "@/contexts/organization-context"
+import { useMyOrganization } from "@/hooks/use-my-organization"
 import { DataTable } from "@/components/data-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { PmeBadge } from "@/components/pme-option"
+import { OrganizationBadge } from "@/components/organization-option"
 import { useRouter } from "next/navigation"
 import type { Article, Stock, Consignment, TaxCharge } from "@/types/database"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -21,8 +21,8 @@ import { ARTICLES_TABS } from "@/lib/section-tabs-config"
 export default function ListArticlesPage() {
   const router = useRouter()
   const { articles, loading } = useArticlesStore()
-  const { selectedOrgId } = usePMESelection()
-  const { isArticleMyPme } = useMyPme()
+  const { selectedOrgId } = useOrganizationSelection()
+  const { isArticleMyOrganization } = useMyOrganization()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [consignmentFilter, setConsignmentFilter] = useState<string>("all")
@@ -56,18 +56,18 @@ export default function ListArticlesPage() {
     },
     {
       accessorKey: "designation",
-      header: "Designation",
+      header: "Désignation",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           {row.original.designation}
           <Badge variant="outline">{row.original.type}</Badge>
-          {isArticleMyPme(row.original) && <PmeBadge />}
+          {isArticleMyOrganization(row.original) && <OrganizationBadge />}
         </div>
       ),
     },
     {
       accessorKey: "unit",
-      header: "Unit",
+      header: "Unité",
       cell: ({ row }) => row.original.unit || "-",
     },
     {
@@ -77,7 +77,7 @@ export default function ListArticlesPage() {
     },
     {
       accessorKey: "transfer_price",
-      header: "Transfer",
+      header: "Transfert",
       cell: ({ row }) => `${row.original.transfer_price} TND`,
     },
     {
@@ -98,7 +98,7 @@ export default function ListArticlesPage() {
       header: "Consign.",
       cell: ({ row }) => {
         const consignment = castJson<Consignment>(row.original.consignment)
-        return consignment.enabled ? <Badge variant="default">Yes</Badge> : <Badge variant="secondary">No</Badge>
+        return consignment.enabled ? <Badge variant="default">Oui</Badge> : <Badge variant="secondary">Non</Badge>
       },
     },
   ]
@@ -108,18 +108,18 @@ export default function ListArticlesPage() {
       <SectionTabs tabs={ARTICLES_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Articles</h1>
-        <Button onClick={() => router.push("/dashboard/articles/add")}>Add Article</Button>
+        <Button onClick={() => router.push("/dashboard/articles/add")}>Ajouter un article</Button>
       </div>
       {loading ? (
-        <div className="text-muted-foreground">Loading articles...</div>
+        <div className="text-muted-foreground">Chargement des articles...</div>
       ) : (
         <>
           <div className="flex gap-4">
-            <Input placeholder="Search by code or designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <Input placeholder="Rechercher par code ou désignation..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Tous les types" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="all">Tous les types</SelectItem>
                 <SelectItem value="product">Produit</SelectItem>
                 <SelectItem value="service">Service</SelectItem>
               </SelectContent>
@@ -127,7 +127,7 @@ export default function ListArticlesPage() {
             <Select value={consignmentFilter} onValueChange={setConsignmentFilter}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="Consign." /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">Tous</SelectItem>
                 <SelectItem value="yes">Oui</SelectItem>
                 <SelectItem value="no">Non</SelectItem>
               </SelectContent>
